@@ -22,3 +22,4 @@ jobs:
           body_path: ./releases/${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
