@@ -24,12 +24,12 @@ const MARKETS: MarketConfig[] = [
       '0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3',
   },
   {
-    symbol: 'MARKET 2',
+    symbol: 'META',
     poolAddress:
       '0x5875d407a42965b0e768c8925cea290e06fa50603ef34fc99eb92a1050e6ae36',
   },
   {
-    symbol: 'MARKET 3',
+    symbol: 'SPCX',
     poolAddress:
       '0xc61284332117c3fb23a2a56cceffd07f7af60029',
   },
