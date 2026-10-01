@@ -51,10 +51,7 @@ export class AgentBrain {
       // No Gemini API key is required here.
       const provider = new GeminiWebProvider();
 
-      const model =
-        this.host.data.model ||
-        llmConfig.model ||
-        'gemini-3.6-flash';
+      const model = 'gemini-3.6-flash';
 
       const teamId =
         useTeamStore.getState().selectedAgentSetId;
