@@ -8,188 +8,49 @@ import InfoModal from './InfoModal';
 
 const version = packageJson.version;
 
-// ============================================================
-// ROBONHOOD TOKEN
-// ============================================================
+/* ============================================================
+   ROBONHOOD MARKET CONFIG
+   ============================================================ */
 
-const TOKEN_ADDRESS =
-  '0x47e4c1b85d12fe1f13405224426dd8cca51df5e0';
+interface MarketConfig {
+  symbol: string;
+  poolAddress: string;
+}
 
-const TOKEN_SYMBOL = '$TOKEN';
+const MARKETS: MarketConfig[] = [
+  {
+    symbol: 'NVDA',
+    poolAddress:
+      '0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3',
+  },
+  {
+    symbol: 'MARKET 2',
+    poolAddress:
+      '0x5875d407a42965b0e768c8925cea290e06fa50603ef34fc99eb92a1050e6ae36',
+  },
+  {
+    symbol: 'MARKET 3',
+    poolAddress:
+      '0xc61284332117c3fb23a2a56cceffd07f7af60029',
+  },
+];
 
-const GECKO_API_URL =
-  `https://api.geckoterminal.com/api/v2/simple/networks/robinhood/token_price/${TOKEN_ADDRESS}`;
+/* ============================================================
+   TYPES
+   ============================================================ */
 
-// ============================================================
-// TOKEN PRICE TICKER
-// ============================================================
+interface MarketData {
+  price: string;
+  change24h: number | null;
+  loading: boolean;
+  error: boolean;
+}
 
-const TokenPriceTicker: React.FC = () => {
-  const [price, setPrice] = useState<string>('—');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<boolean>(false);
+/* ============================================================
+   PRICE FORMATTER
+   ============================================================ */
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchTokenPrice = async () => {
-      try {
-        setError(false);
-
-        const response = await fetch(GECKO_API_URL, {
-          method: 'GET',
-          headers: {
-            Accept:
-              'application/json;version=20230203',
-          },
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `GeckoTerminal HTTP ${response.status}`
-          );
-        }
-
-        const json = await response.json();
-
-        if (cancelled) {
-          return;
-        }
-
-        /*
-         * GeckoTerminal simple token-price response:
-         *
-         * {
-         *   data: {
-         *     id: "robinhood",
-         *     type: "simple_token_price",
-         *     attributes: {
-         *       token_prices: {
-         *         "0x...": "0.000123"
-         *       }
-         *     }
-         *   }
-         * }
-         */
-
-        const tokenPrices =
-          json?.data?.attributes?.token_prices;
-
-        const rawPrice =
-          tokenPrices?.[TOKEN_ADDRESS] ??
-          tokenPrices?.[TOKEN_ADDRESS.toLowerCase()];
-
-        if (rawPrice === undefined || rawPrice === null) {
-          throw new Error(
-            'Token price not found in GeckoTerminal response'
-          );
-        }
-
-        const numericPrice = Number(rawPrice);
-
-        if (!Number.isFinite(numericPrice)) {
-          throw new Error('Invalid token price');
-        }
-
-        setPrice(formatTokenPrice(numericPrice));
-      } catch (err) {
-        console.error(
-          '[RobOnHood] Failed to fetch token price:',
-          err
-        );
-
-        if (!cancelled) {
-          setError(true);
-          setPrice('—');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    // Initial request
-    fetchTokenPrice();
-
-    /*
-     * GeckoTerminal public API data is cached for about
-     * one minute, so don't poll more frequently than that.
-     */
-    const interval = window.setInterval(
-      fetchTokenPrice,
-      60_000
-    );
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  return (
-    <a
-      href={`https://www.geckoterminal.com/robinhood/token/${TOKEN_ADDRESS}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="
-        flex
-        items-center
-        gap-3
-        h-9
-        px-4
-        border-l
-        border-r
-        border-zinc-100
-        shrink-0
-        hover:bg-zinc-50
-        transition-colors
-        cursor-pointer
-      "
-      title="View token on GeckoTerminal"
-    >
-      {/* Token label */}
-      <div className="flex flex-col justify-center leading-none">
-        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-400">
-          {TOKEN_SYMBOL}
-        </span>
-
-        <span className="text-[11px] font-bold text-zinc-700 font-mono mt-1">
-          {loading ? 'Loading...' : price}
-        </span>
-      </div>
-
-      {/* Live indicator */}
-      <div className="flex items-center gap-1">
-        <span
-          className={`
-            w-1.5
-            h-1.5
-            rounded-full
-            ${
-              error
-                ? 'bg-red-400'
-                : loading
-                  ? 'bg-zinc-300'
-                  : 'bg-emerald-400'
-            }
-          `}
-        />
-
-        <span className="text-[7px] font-bold uppercase tracking-wider text-zinc-400">
-          {error ? 'Offline' : 'Live'}
-        </span>
-      </div>
-    </a>
-  );
-};
-
-// ============================================================
-// PRICE FORMATTER
-// ============================================================
-
-const formatTokenPrice = (price: number): string => {
+const formatPrice = (price: number): string => {
   if (!Number.isFinite(price)) {
     return '—';
   }
@@ -197,10 +58,6 @@ const formatTokenPrice = (price: number): string => {
   if (price === 0) {
     return '$0';
   }
-
-  /*
-   * Very small token prices need more decimal places.
-   */
 
   if (price < 0.000001) {
     return `$${price.toFixed(10)}`;
@@ -220,13 +77,292 @@ const formatTokenPrice = (price: number): string => {
 
   return `$${price.toLocaleString('en-US', {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
+    maximumFractionDigits: 2,
   })}`;
 };
 
-// ============================================================
-// HEADER
-// ============================================================
+/* ============================================================
+   SINGLE MARKET DISPLAY
+   ============================================================ */
+
+interface MarketTickerProps {
+  market: MarketConfig;
+  data: MarketData;
+}
+
+const MarketTicker: React.FC<MarketTickerProps> = ({
+  market,
+  data,
+}) => {
+  const isPositive =
+    data.change24h !== null &&
+    data.change24h >= 0;
+
+  const geckoUrl =
+    `https://www.geckoterminal.com/robinhood/pools/${market.poolAddress}`;
+
+  return (
+    <a
+      href={geckoUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`View ${market.symbol} on GeckoTerminal`}
+      className="
+        flex
+        items-center
+        gap-2
+        h-9
+        px-3
+        border-l
+        border-zinc-100
+        shrink-0
+        hover:bg-zinc-50
+        transition-colors
+        cursor-pointer
+      "
+    >
+      {/* Symbol */}
+      <div className="flex flex-col justify-center leading-none">
+        <span
+          className="
+            text-[8px]
+            font-black
+            uppercase
+            tracking-widest
+            text-zinc-400
+          "
+        >
+          {market.symbol}
+        </span>
+
+        <span
+          className="
+            text-[11px]
+            font-bold
+            text-zinc-700
+            font-mono
+            mt-1
+          "
+        >
+          {data.loading
+            ? 'Loading...'
+            : data.price}
+        </span>
+      </div>
+
+      {/* 24H CHANGE */}
+      {data.change24h !== null && (
+        <span
+          className={`
+            text-[8px]
+            font-bold
+            whitespace-nowrap
+            ${
+              isPositive
+                ? 'text-emerald-500'
+                : 'text-red-500'
+            }
+          `}
+        >
+          {isPositive ? '▲' : '▼'}{' '}
+          {Math.abs(data.change24h).toFixed(2)}%
+        </span>
+      )}
+
+      {/* LIVE STATUS */}
+      <span
+        className={`
+          w-1.5
+          h-1.5
+          rounded-full
+          ${
+            data.error
+              ? 'bg-red-400'
+              : data.loading
+                ? 'bg-zinc-300'
+                : 'bg-emerald-400'
+          }
+        `}
+      />
+    </a>
+  );
+};
+
+/* ============================================================
+   MARKET TICKER CONTAINER
+   ============================================================ */
+
+const MarketTickers: React.FC = () => {
+  const [marketData, setMarketData] =
+    useState<Record<string, MarketData>>(() => {
+      const initial: Record<string, MarketData> = {};
+
+      MARKETS.forEach((market) => {
+        initial[market.poolAddress] = {
+          price: '—',
+          change24h: null,
+          loading: true,
+          error: false,
+        };
+      });
+
+      return initial;
+    });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchMarkets = async () => {
+      await Promise.all(
+        MARKETS.map(async (market) => {
+          try {
+            const apiUrl =
+              `https://api.geckoterminal.com/api/v2/networks/robinhood/pools/${market.poolAddress}`;
+
+            const response = await fetch(apiUrl, {
+              method: 'GET',
+              headers: {
+                Accept:
+                  'application/json;version=20230203',
+              },
+              cache: 'no-store',
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                `HTTP ${response.status}`
+              );
+            }
+
+            const json = await response.json();
+
+            const attributes =
+              json?.data?.attributes;
+
+            if (!attributes) {
+              throw new Error(
+                'Pool data unavailable'
+              );
+            }
+
+            /*
+             * GeckoTerminal pool endpoint
+             *
+             * base_token_price_usd
+             * price_change_percentage.h24
+             */
+
+            const rawPrice =
+              attributes.base_token_price_usd;
+
+            const numericPrice =
+              Number(rawPrice);
+
+            if (!Number.isFinite(numericPrice)) {
+              throw new Error(
+                'Invalid price'
+              );
+            }
+
+            const rawChange =
+              attributes
+                ?.price_change_percentage
+                ?.h24;
+
+            const numericChange =
+              Number(rawChange);
+
+            if (cancelled) {
+              return;
+            }
+
+            setMarketData((previous) => ({
+              ...previous,
+              [market.poolAddress]: {
+                price:
+                  formatPrice(
+                    numericPrice
+                  ),
+                change24h:
+                  Number.isFinite(
+                    numericChange
+                  )
+                    ? numericChange
+                    : null,
+                loading: false,
+                error: false,
+              },
+            }));
+          } catch (error) {
+            console.error(
+              `[RobOnHood] Failed to fetch ${market.symbol}:`,
+              error
+            );
+
+            if (cancelled) {
+              return;
+            }
+
+            setMarketData((previous) => ({
+              ...previous,
+              [market.poolAddress]: {
+                price: '—',
+                change24h: null,
+                loading: false,
+                error: true,
+              },
+            }));
+          }
+        })
+      );
+    };
+
+    // Initial load
+    fetchMarkets();
+
+    /*
+     * Refresh once per minute.
+     * GeckoTerminal public API data is cached/rate-limited.
+     */
+    const interval =
+      window.setInterval(
+        fetchMarkets,
+        60_000
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <div
+      className="
+        flex
+        items-center
+        shrink-0
+        overflow-hidden
+      "
+    >
+      {MARKETS.map((market) => (
+        <MarketTicker
+          key={market.poolAddress}
+          market={market}
+          data={
+            marketData[
+              market.poolAddress
+            ]
+          }
+        />
+      ))}
+    </div>
+  );
+};
+
+/* ============================================================
+   HEADER
+   ============================================================ */
 
 const Header: React.FC = () => {
   const {
@@ -237,14 +373,17 @@ const Header: React.FC = () => {
 
   const { setViewMode } = useCoreStore();
 
-  const [isInfoOpen, setIsInfoOpen] =
-    useState(false);
+  const [
+    isInfoOpen,
+    setIsInfoOpen,
+  ] = useState(false);
 
-  const hasKey = !!llmConfig.apiKey;
+  const hasKey =
+    !!llmConfig.apiKey;
 
-  // ==========================================================
-  // FULLSCREEN
-  // ==========================================================
+  /* ==========================================================
+     FULLSCREEN
+     ========================================================== */
 
   const handleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -256,9 +395,9 @@ const Header: React.FC = () => {
     }
   };
 
-  // ==========================================================
-  // RENDER
-  // ==========================================================
+  /* ==========================================================
+     RENDER
+     ========================================================== */
 
   return (
     <header
@@ -276,17 +415,25 @@ const Header: React.FC = () => {
         z-40
       "
     >
-
       {/* ======================================================
           LEFT: PROJECT TITLE
       ====================================================== */}
 
-      <div className="flex items-center min-w-0">
-
+      <div
+        className="
+          flex
+          items-center
+          min-w-0
+        "
+      >
         <img
           src="images/robonhood.svg"
           alt="RobOnHood"
-          className="h-10 w-auto shrink-0"
+          className="
+            h-10
+            w-auto
+            shrink-0
+          "
         />
 
         <div
@@ -300,11 +447,16 @@ const Header: React.FC = () => {
             min-w-0
           "
         >
+          {/* INFO + VERSION */}
 
-          {/* Version / Info */}
-
-          <div className="flex items-center gap-1 shrink-0">
-
+          <div
+            className="
+              flex
+              items-center
+              gap-1
+              shrink-0
+            "
+          >
             <button
               onClick={() =>
                 setIsInfoOpen(true)
@@ -333,10 +485,9 @@ const Header: React.FC = () => {
             >
               v{version}
             </span>
-
           </div>
 
-          {/* RobOnHood Link */}
+          {/* ROBONHOOD */}
 
           <div
             className="
@@ -346,7 +497,6 @@ const Header: React.FC = () => {
               min-w-0
             "
           >
-
             <a
               href="https://robonhood.fun"
               target="_blank"
@@ -362,40 +512,28 @@ const Header: React.FC = () => {
             >
               @robonhood
             </a>
-
-            <a
-              href={`https://www.geckoterminal.com/robinhood/token/${TOKEN_ADDRESS}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                text-zinc-300
-                hover:text-darkDelegation
-                transition-colors
-                shrink-0
-              "
-              title="View token on GeckoTerminal"
-            >
-              {/* Token link icon intentionally minimal */}
-            </a>
-
           </div>
-
         </div>
       </div>
 
       {/* ======================================================
-          LIVE TOKEN PRICE
+          THREE LIVE MARKETS
       ====================================================== */}
 
-      <TokenPriceTicker />
+      <MarketTickers />
 
       {/* ======================================================
           RIGHT: GLOBAL CONTROLS
       ====================================================== */}
 
-      <div className="flex items-center gap-3">
-
-        {/* Manage Teams */}
+      <div
+        className="
+          flex
+          items-center
+          gap-3
+        "
+      >
+        {/* MANAGE TEAMS */}
 
         <button
           onClick={() =>
@@ -422,7 +560,6 @@ const Header: React.FC = () => {
           "
           title="Manage Teams"
         >
-
           <Settings
             size={14}
             className="
@@ -444,10 +581,9 @@ const Header: React.FC = () => {
           >
             Manage Teams
           </span>
-
         </button>
 
-        {/* Divider */}
+        {/* DIVIDER */}
 
         <div
           className="
@@ -457,12 +593,15 @@ const Header: React.FC = () => {
           "
         />
 
-        {/* Fullscreen + API */}
+        {/* FULLSCREEN + API */}
 
-        <div className="flex items-center gap-2">
-
-          {/* Fullscreen */}
-
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
           <button
             onClick={handleFullscreen}
             className="
@@ -475,8 +614,6 @@ const Header: React.FC = () => {
           >
             <Maximize2 size={16} />
           </button>
-
-          {/* API Key */}
 
           <button
             onClick={() =>
@@ -491,7 +628,6 @@ const Header: React.FC = () => {
             "
             title="API Key (BYOK)"
           >
-
             <KeyRound
               size={16}
               className={
@@ -514,11 +650,8 @@ const Header: React.FC = () => {
                 "
               />
             )}
-
           </button>
-
         </div>
-
       </div>
 
       {/* ======================================================
@@ -546,7 +679,6 @@ const Header: React.FC = () => {
           }
         />
       )}
-
     </header>
   );
 };
