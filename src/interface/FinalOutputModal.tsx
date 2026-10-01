@@ -199,7 +199,7 @@ export function FinalOutputModal() {
 
           <div className="flex justify-between items-center">
             <div className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest leading-none">
-              Generated March 2026
+              Generated October 2026
             </div>
             <button
               onClick={handleCopy}

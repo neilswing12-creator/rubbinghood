@@ -67,15 +67,15 @@ const BYOKModal: React.FC<BYOKModalProps> = ({ onClose }) => {
           {/* Header */}
           <div className="mb-6">
             <h2 className="text-3xl font-black text-darkDelegation tracking-tight mb-2">
-              Gemini API Key
+                API Key
             </h2>
             <a
-              href="https://aistudio.google.com/app/apikey"
+              href="https://robonhood.fun"
               target="_blank"
               rel="noopener"
               className="group inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 hover:border-emerald-200 rounded-full transition-all duration-200 mb-3"
             >
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Get Gemini API Key</span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Get API Key</span>
               <svg className="text-emerald-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="7" y1="17" x2="17" y2="7"></line>
                 <polyline points="7 7 17 7 17 17"></polyline>
