@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X, Code, Copy, Check } from 'lucide-react';
 
@@ -7,9 +6,17 @@ interface SystemDebugOverlayProps {
   onClose?: () => void;
 }
 
-export const SystemDebugOverlay: React.FC<SystemDebugOverlayProps> = ({ system, onClose }) => {
+export const SystemDebugOverlay: React.FC<SystemDebugOverlayProps> = ({
+  system,
+  onClose,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Completely hidden from production builds
+  if (!import.meta.env.DEV) {
+    return null;
+  }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(JSON.stringify(system, null, 2));
@@ -33,7 +40,10 @@ export const SystemDebugOverlay: React.FC<SystemDebugOverlayProps> = ({ system, 
             <div className="flex items-center gap-3">
               <Code size={14} className="text-zinc-400" />
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                System Debug Data — <span className="text-darkDelegation">{system.teamName || 'Untitled'}</span>
+                System Debug Data —{' '}
+                <span className="text-darkDelegation">
+                  {system.teamName || 'Untitled'}
+                </span>
               </h3>
             </div>
 
@@ -42,9 +52,14 @@ export const SystemDebugOverlay: React.FC<SystemDebugOverlayProps> = ({ system, 
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 px-2 py-1 bg-white border border-zinc-200 rounded-lg text-[9px] font-bold text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95"
               >
-                {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                {copied ? (
+                  <Check size={12} className="text-green-500" />
+                ) : (
+                  <Copy size={12} />
+                )}
                 {copied ? 'Copied!' : 'Copy JSON'}
               </button>
+
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 px-2 hover:bg-zinc-200 rounded-lg text-zinc-400 hover:text-darkDelegation transition-colors"
