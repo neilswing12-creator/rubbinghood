@@ -180,19 +180,24 @@ export const AgentConfigPanel: React.FC<AgentConfigPanelProps> = ({
                 </div>
               ), 'Limit characters to letters, numbers and spaces. The ID is auto-generated.')}
 
-              {renderField('LLM Model', <Cpu size={12} />, isView ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 border border-zinc-200 rounded-lg text-xs font-mono text-zinc-600 w-fit lowercase">
-                  {editData.model || 'robonhood-ai'}
-                </div>
-              ) : (
-                <select
-                  value={editData.model || 'robonhood-ai'}
-                  onChange={(e) => updateDraft({ model: e.target.value })}
-                  className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-black/5 cursor-pointer lowercase"
-                >
-                  {availableModels.map(m => <option key={m} value={m} className="lowercase">{m}</option>)}
-                </select>
-              ), 'The specific Gemini model this agent will use.')}
+                {renderField(
+                  'LLM Model',
+                  <Cpu size={12} />,
+                  isView ? (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 border border-zinc-200 rounded-lg text-xs font-mono text-zinc-600 w-fit lowercase">
+                      robonhoodai
+                    </div>
+                  ) : (
+                    <select
+                      value={editData.model || 'gemini-3.6-flash'}
+                      onChange={(e) => updateDraft({ model: e.target.value })}
+                      className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-black/5 cursor-pointer lowercase"
+                    >
+                      <option value="gemini-3.6-flash">robonhoodai</option>
+                    </select>
+                  ),
+                  'The AI model used by this agent.'
+                )}
             </div>
 
             {/* Content Group */}
