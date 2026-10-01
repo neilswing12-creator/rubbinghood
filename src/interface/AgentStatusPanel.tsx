@@ -46,7 +46,7 @@ const AgentStatusPanel: React.FC<AgentStatusPanelProps> = ({ agentIndex }) => {
           </div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-50 rounded-lg border border-zinc-100/60 font-mono">
             <p className="text-[11px] font-bold text-darkDelegation uppercase tracking-tighter">
-              {agent.model}
+              robonhoodai
             </p>
           </div>
         </div>
