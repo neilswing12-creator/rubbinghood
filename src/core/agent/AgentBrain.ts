@@ -1,5 +1,4 @@
 import { LLMMessage } from '../llm/types';
-import { GeminiProvider } from '../llm/providers/GeminiProvider';
 import { GeminiWebProvider } from '../llm/providers/GeminiWebProvider';
 import { useUiStore } from '../../integration/store/uiStore';
 import { useCoreStore } from '../../integration/store/coreStore';
@@ -45,12 +44,25 @@ export class AgentBrain {
       this.refreshFromStore();
 
       const core = useCoreStore.getState();
-      const llmConfig = useUiStore.getState().llmConfig;
 
-      // RobOnHood now uses the VPS Gemini Web API.
-      // No Gemini API key is required here.
+      /*
+       * RobOnHood uses the VPS-hosted Gemini Web API.
+       *
+       * No Gemini API key is required in the browser.
+       * All text generation goes through:
+       *
+       * /api/ai/v1/chat/completions
+       *
+       * The VPS Gemini Web API handles the actual Gemini connection.
+       */
       const provider = new GeminiWebProvider();
 
+      /*
+       * Internal API model.
+       *
+       * This is intentionally kept separate from the UI branding.
+       * The UI can display "robonhoodai".
+       */
       const model = 'gemini-3.6-flash';
 
       const teamId =
@@ -63,9 +75,13 @@ export class AgentBrain {
           .find((s) => s.id === teamId) ||
         AGENTIC_SETS.find((s) => s.id === teamId);
 
-      const hasVisionSupport =
-        activeTeam?.outputType === 'image' ||
-        activeTeam?.outputType === 'video';
+      /*
+       * RobOnHood is currently text-only.
+       *
+       * We intentionally do not enable image/video vision
+       * or media generation here.
+       */
+      const hasVisionSupport = false;
 
       // 1. Manage Message History
       if (!options.isChat) {
@@ -77,13 +93,10 @@ export class AgentBrain {
             : undefined,
         };
 
-        if (
-          hasVisionSupport &&
-          core.referenceImages.length > 0
-        ) {
-          userMsg.images = core.referenceImages;
-        }
-
+        /*
+         * Text-only mode:
+         * reference images are intentionally ignored.
+         */
         this.history.push(userMsg);
         this.syncToStore();
       }
@@ -92,6 +105,9 @@ export class AgentBrain {
       let messages: LLMMessage[] =
         this.history.slice(-10);
 
+      /*
+       * Text-only RobOnHood does not attach reference images.
+       */
       if (
         options.isChat &&
         hasVisionSupport &&
@@ -270,11 +286,19 @@ export class AgentBrain {
           tc
         );
 
+        /*
+         * RobOnHood is text-only.
+         *
+         * deliver_project no longer triggers image,
+         * music, or video generation.
+         *
+         * Instead, it produces the final text output.
+         */
         if (
           tc.name === 'deliver_project' &&
           handled
         ) {
-          this.handleFinalAssetGeneration(
+          await this.handleFinalAssetGeneration(
             tc.args.output
           );
         }
@@ -295,9 +319,19 @@ export class AgentBrain {
           ? error.message
           : String(error);
 
-      useUiStore
-        .getState()
-        .setBYOKOpen(true, errMsg);
+      /*
+       * Do NOT open the BYOK/API-key modal.
+       *
+       * RobOnHood uses the VPS Gemini Web API and
+       * does not require a browser-side API key.
+       */
+      useCoreStore.getState().addLogEntry({
+        agentIndex: this.host.data.index,
+        action: `AI error: ${errMsg}`,
+        taskId:
+          this.host.getCurrentTaskId() ||
+          undefined,
+      });
 
       throw error;
     } finally {
@@ -330,6 +364,12 @@ export class AgentBrain {
     );
   }
 
+  /*
+   * RobOnHood text-only final delivery.
+   *
+   * This replaces the old image/music/video generation
+   * pipeline completely.
+   */
   private async handleFinalAssetGeneration(
     prompt: string
   ) {
@@ -347,194 +387,94 @@ export class AgentBrain {
         (s) => s.id === teamId
       );
 
-    if (!activeTeam) return;
+    if (!activeTeam) {
+      return;
+    }
 
-    // Check if we need manual approval
+    /*
+     * Manual approval flow.
+     *
+     * Keep this functionality, but only for text output.
+     */
     if (
       activeTeam.outputAutoApprove === false
     ) {
       core.setPendingOutputPrompt(prompt);
 
-      const defaultParams: any = {
-        model: activeTeam.outputModel,
-      };
-
-      if (
-        activeTeam.outputType === 'image'
-      ) {
-        defaultParams.aspectRatio = '16:9';
-        defaultParams.imageSize = '1K';
-      } else if (
-        activeTeam.outputType === 'video'
-      ) {
-        defaultParams.resolution = '720p';
-        defaultParams.aspectRatio = '16:9';
-        defaultParams.durationSeconds = 4;
-      }
-
-      core.setPendingOutputParams(
-        defaultParams
-      );
+      core.setPendingOutputParams({
+        model: 'gemini-3.6-flash',
+        outputType: 'text',
+      });
 
       core.setReviewingOutput(true);
 
       return;
     }
 
-    // Standard auto-approve flow
+    /*
+     * Automatic text delivery.
+     */
     await this.processFinalAsset(
       prompt,
-      { model: activeTeam.outputModel }
+      {
+        model: 'gemini-3.6-flash',
+        outputType: 'text',
+      }
     );
   }
 
+  /*
+   * Final text output.
+   *
+   * There is no GeminiProvider here.
+   * There is no API key.
+   * There is no image/audio/video generation.
+   */
   public async processFinalAsset(
     prompt: string,
-    options: any
+    options: any = {}
   ) {
     const core = useCoreStore.getState();
-
-    const teamId =
-      useTeamStore.getState().selectedAgentSetId;
-
-    const activeTeam =
-      useTeamStore
-        .getState()
-        .customSystems
-        .find((s) => s.id === teamId) ||
-      AGENTIC_SETS.find(
-        (s) => s.id === teamId
-      );
-
-    if (!activeTeam) return;
 
     core.setIsGeneratingAsset(true);
     core.setReviewingOutput(false);
 
     try {
-      /*
-       * Keep the original Gemini provider for
-       * image/music/video generation for now.
-       */
-      const llmConfig =
-        useUiStore.getState().llmConfig;
-
-      if (!llmConfig.apiKey) {
-        throw new Error(
-          'Media generation still requires the existing Gemini API key.'
-        );
-      }
-
-      const provider =
-        new GeminiProvider(
-          llmConfig.apiKey
-        ) as any;
-
-      const model =
-        options.model ||
-        activeTeam.outputModel ||
-        llmConfig.model;
+      const finalText =
+        typeof prompt === 'string'
+          ? prompt
+          : String(prompt ?? '');
 
       core.addLogEntry({
         agentIndex: -1,
-        action: `Generating final ${activeTeam.outputType} using ${model}...`,
+        action: 'Preparing final text output...',
         taskId: undefined,
       });
 
-      let assetContent = '';
-      let usage: any = undefined;
-
-      if (
-        activeTeam.outputType === 'image'
-      ) {
-        const result =
-          await provider.generateImage(
-            prompt,
-            model,
-            (msg: string) => {
-              console.log(
-                `[System:Image] ${msg}`
-              );
-            },
-            options,
-            core.referenceImages
-          );
-
-        assetContent = result.data || '';
-        usage = result.usage;
-      } else if (
-        activeTeam.outputType === 'music'
-      ) {
-        const result =
-          await provider.generateAudio(
-            prompt,
-            model,
-            (msg: string) => {
-              console.log(
-                `[System:Audio] ${msg}`
-              );
-            }
-          );
-
-        assetContent = result.data || '';
-        usage = result.usage;
-      } else if (
-        activeTeam.outputType === 'video'
-      ) {
-        const result =
-          await provider.generateVideo(
-            prompt,
-            model,
-            (msg: string) => {
-              console.log(
-                `[System:Video] ${msg}`
-              );
-            },
-            options,
-            core.referenceImages
-          );
-
-        assetContent =
-          result.videoUrl || '';
-
-        usage = result.usage;
-      } else if (
-        activeTeam.outputType === 'text'
-      ) {
-        core.setFinalOutput(prompt);
-        core.setPhase('done');
-        core.setFinalOutputOpen(true);
-        core.setIsGeneratingAsset(false);
-
-        return;
-      }
+      /*
+       * Final output is simply the text returned by
+       * the agent/tool workflow.
+       */
+      core.setFinalOutput(finalText);
 
       core.addResponseLog({
         agentIndex: -1,
-        agentName: 'System',
-        content: `Final ${activeTeam.outputType} generated successfully.`,
-        usage,
+        agentName: 'RobOnHood AI',
+        content: finalText,
+        usage: undefined,
         raw: {
-          model,
-          ...usage,
+          model: 'gemini-3.6-flash',
+          outputType: 'text',
         },
         taskId: undefined,
       });
 
-      core.setFinalOutput(prompt);
-
-      core.setFinalAsset(
-        activeTeam.outputType === 'music'
-          ? 'audio'
-          : (activeTeam.outputType as any),
-        assetContent
-      );
-
       core.setPhase('done');
       core.setFinalOutputOpen(true);
+      core.setIsGeneratingAsset(false);
     } catch (error) {
       console.error(
-        '[AgentBrain] Final asset generation failed:',
+        '[AgentBrain] Final text generation failed:',
         error
       );
 
@@ -545,15 +485,16 @@ export class AgentBrain {
           ? error.message
           : String(error);
 
-      useUiStore
-        .getState()
-        .setBYOKOpen(true, errMsg);
-
+      /*
+       * Do NOT open BYOK.
+       */
       core.addLogEntry({
-        agentIndex: 0,
-        action: `Error generating final ${activeTeam.outputType}: ${errMsg}`,
+        agentIndex: -1,
+        action: `Error generating final text: ${errMsg}`,
         taskId: undefined,
       });
+
+      throw error;
     }
   }
 
