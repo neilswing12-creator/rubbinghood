@@ -110,7 +110,7 @@ export const VisualFlowNode = ({ data, selected, type }: any) => {
                   backgroundColor: '#fafafa' // bg-zinc-50
                 }}
               >
-                {data.agent?.model}
+                robonhoodai
               </div>
             )}
           </div>
