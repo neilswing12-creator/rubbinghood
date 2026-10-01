@@ -1,0 +1,42 @@
+{
+  "name": "robonhood",
+  "description": "AI-powered 3D agents. Real-time market insights. Your next move, visualized.",
+  "license": "MIT",
+  "author": "RobOnHood (robonhood.fun)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neilswing12-creator/rubbinghood.git"
+  },
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "1.48.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "@xyflow/react": "^12.10.1",
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "three": "^0.183.0",
+    "three-pathfinding": "^1.3.0",
+    "vite": "^6.2.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "tailwindcss": "^4.1.14",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
