@@ -1,334 +1,319 @@
-import { Info, KeyRound, Maximize2, Settings } from 'lucide-react';
+import { Info, Maximize2, Settings } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import packageJson from '../../package.json';
 import { useCoreStore } from '../integration/store/coreStore';
-import { useUiStore } from '../integration/store/uiStore';
-import BYOKModal from './BYOKModal';
 import InfoModal from './InfoModal';
 
 const version = packageJson.version;
 
 /* ============================================================
-   ROBONHOOD MARKET CONFIG
+   PUMP.FUN NEW TOKEN FEED
    ============================================================ */
 
-interface MarketConfig {
-  symbol: string;
-  poolAddress: string;
-}
+const PUMP_TOKEN_API =
+  '/api/pump/coins?offset=0&limit=30&sort=created_timestamp&includeNsfw=false&order=DESC';
 
-const MARKETS: MarketConfig[] = [
-  {
-    symbol: 'NVDA',
-    poolAddress:
-      '0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3',
-  },
-  {
-    symbol: 'META',
-    poolAddress:
-      '0x5875d407a42965b0e768c8925cea290e06fa50603ef34fc99eb92a1050e6ae36',
-  },
-  {
-    symbol: 'SPCX',
-    poolAddress:
-      '0xc61284332117c3fb23a2a56cceffd07f7af60029',
-  },
-];
+const PUMP_BASE_URL = 'https://pump.fun/coin/';
 
-/* ============================================================
-   TYPES
-   ============================================================ */
-
-interface MarketData {
-  price: string;
-  change24h: number | null;
-  loading: boolean;
-  error: boolean;
+interface PumpToken {
+  mint: string;
+  name?: string;
+  symbol?: string;
+  image_uri?: string;
+  created_timestamp?: number;
+  market_cap_usd?: number;
+  usd_market_cap?: number;
+  complete?: boolean;
+  nsfw?: boolean;
 }
 
 /* ============================================================
-   PRICE FORMATTER
+   FORMAT MARKET CAP
    ============================================================ */
 
-const formatPrice = (price: number): string => {
-  if (!Number.isFinite(price)) {
+const formatMarketCap = (value?: number): string => {
+  if (!Number.isFinite(value)) {
     return '—';
   }
 
-  if (price === 0) {
-    return '$0';
+  const number = Number(value);
+
+  if (number >= 1_000_000_000) {
+    return `$${(number / 1_000_000_000).toFixed(2)}B`;
   }
 
-  if (price < 0.000001) {
-    return `$${price.toFixed(10)}`;
+  if (number >= 1_000_000) {
+    return `$${(number / 1_000_000).toFixed(2)}M`;
   }
 
-  if (price < 0.0001) {
-    return `$${price.toFixed(8)}`;
+  if (number >= 1_000) {
+    return `$${(number / 1_000).toFixed(1)}K`;
   }
 
-  if (price < 0.01) {
-    return `$${price.toFixed(6)}`;
-  }
-
-  if (price < 1) {
-    return `$${price.toFixed(4)}`;
-  }
-
-  return `$${price.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return `$${number.toFixed(0)}`;
 };
 
 /* ============================================================
-   SINGLE MARKET DISPLAY
+   SINGLE PUMP TOKEN
    ============================================================ */
 
-interface MarketTickerProps {
-  market: MarketConfig;
-  data: MarketData;
+interface PumpTokenItemProps {
+  token: PumpToken;
 }
 
-const MarketTicker: React.FC<MarketTickerProps> = ({
-  market,
-  data,
-}) => {
-  const isPositive =
-    data.change24h !== null &&
-    data.change24h >= 0;
+const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
+  const name =
+    token.name?.trim() ||
+    token.symbol?.trim() ||
+    'Unknown Token';
 
-  const geckoUrl =
-    `https://www.geckoterminal.com/robinhood/pools/${market.poolAddress}`;
+  const symbol =
+    token.symbol?.trim() ||
+    'TOKEN';
+
+  const marketCap =
+    token.usd_market_cap ??
+    token.market_cap_usd;
 
   return (
     <a
-      href={geckoUrl}
+      href={`${PUMP_BASE_URL}${token.mint}`}
       target="_blank"
       rel="noopener noreferrer"
-      title={`View ${market.symbol} on GeckoTerminal`}
+      title={`View ${name} on Pump.fun`}
       className="
+        group
         flex
         items-center
         gap-2
         h-9
         px-3
+        shrink-0
         border-l
         border-zinc-100
-        shrink-0
         hover:bg-zinc-50
         transition-colors
         cursor-pointer
       "
     >
-      {/* Symbol */}
-      <div className="flex flex-col justify-center leading-none">
-        <span
-          className="
-            text-[8px]
-            font-black
-            uppercase
-            tracking-widest
-            text-zinc-400
-          "
-        >
-          {market.symbol}
-        </span>
+      {/* TOKEN IMAGE */}
+
+      <div
+        className="
+          w-6
+          h-6
+          rounded-full
+          overflow-hidden
+          bg-zinc-100
+          border
+          border-zinc-200
+          shrink-0
+        "
+      >
+        {token.image_uri ? (
+          <img
+            src={token.image_uri}
+            alt=""
+            className="
+              w-full
+              h-full
+              object-cover
+              group-hover:scale-110
+              transition-transform
+            "
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div
+            className="
+              w-full
+              h-full
+              flex
+              items-center
+              justify-center
+              text-[8px]
+              font-black
+              text-zinc-400
+            "
+          >
+            $
+          </div>
+        )}
+      </div>
+
+      {/* TOKEN NAME */}
+
+      <div className="flex flex-col justify-center leading-none min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span
+            className="
+              text-[9px]
+              font-black
+              uppercase
+              tracking-wider
+              text-zinc-700
+              max-w-[90px]
+              truncate
+            "
+          >
+            ${symbol}
+          </span>
+
+          {/* NEW INDICATOR */}
+
+          <span
+            className="
+              flex
+              items-center
+              gap-1
+              text-[6px]
+              font-black
+              uppercase
+              tracking-wider
+              text-emerald-500
+            "
+          >
+            <span
+              className="
+                w-1.5
+                h-1.5
+                rounded-full
+                bg-emerald-400
+                animate-pulse
+              "
+            />
+            NEW
+          </span>
+        </div>
 
         <span
           className="
-            text-[11px]
-            font-bold
-            text-zinc-700
-            font-mono
+            text-[8px]
+            font-medium
+            text-zinc-400
+            truncate
+            max-w-[110px]
             mt-1
           "
         >
-          {data.loading
-            ? 'Loading...'
-            : data.price}
+          {name}
         </span>
       </div>
 
-      {/* 24H CHANGE */}
-      {data.change24h !== null && (
-        <span
-          className={`
-            text-[8px]
-            font-bold
-            whitespace-nowrap
-            ${
-              isPositive
-                ? 'text-emerald-500'
-                : 'text-red-500'
-            }
-          `}
-        >
-          {isPositive ? '▲' : '▼'}{' '}
-          {Math.abs(data.change24h).toFixed(2)}%
-        </span>
-      )}
+      {/* MARKET CAP */}
 
-      {/* LIVE STATUS */}
-      <span
-        className={`
-          w-1.5
-          h-1.5
-          rounded-full
-          ${
-            data.error
-              ? 'bg-red-400'
-              : data.loading
-                ? 'bg-zinc-300'
-                : 'bg-emerald-400'
-          }
-        `}
-      />
+      <div
+        className="
+          flex
+          flex-col
+          justify-center
+          leading-none
+          shrink-0
+        "
+      >
+        <span
+          className="
+            text-[7px]
+            font-bold
+            uppercase
+            tracking-wider
+            text-zinc-300
+          "
+        >
+          MCAP
+        </span>
+
+        <span
+          className="
+            text-[9px]
+            font-bold
+            font-mono
+            text-zinc-600
+            mt-1
+          "
+        >
+          {formatMarketCap(marketCap)}
+        </span>
+      </div>
     </a>
   );
 };
 
 /* ============================================================
-   MARKET TICKER CONTAINER
+   PUMP.FUN MARQUEE
    ============================================================ */
 
-const MarketTickers: React.FC = () => {
-  const [marketData, setMarketData] =
-    useState<Record<string, MarketData>>(() => {
-      const initial: Record<string, MarketData> = {};
-
-      MARKETS.forEach((market) => {
-        initial[market.poolAddress] = {
-          price: '—',
-          change24h: null,
-          loading: true,
-          error: false,
-        };
-      });
-
-      return initial;
-    });
+const PumpTokenMarquee: React.FC = () => {
+  const [tokens, setTokens] = useState<PumpToken[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchMarkets = async () => {
-      await Promise.all(
-        MARKETS.map(async (market) => {
-          try {
-            const apiUrl =
-              `https://api.geckoterminal.com/api/v2/networks/robinhood/pools/${market.poolAddress}`;
+    const fetchTokens = async () => {
+      try {
+        const response = await fetch(PUMP_TOKEN_API, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+          },
+          cache: 'no-store',
+        });
 
-            const response = await fetch(apiUrl, {
-              method: 'GET',
-              headers: {
-                Accept:
-                  'application/json;version=20230203',
-              },
-              cache: 'no-store',
-            });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
 
-            if (!response.ok) {
-              throw new Error(
-                `HTTP ${response.status}`
-              );
-            }
+        const data = await response.json();
 
-            const json = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid Pump.fun response');
+        }
 
-            const attributes =
-              json?.data?.attributes;
+        if (cancelled) {
+          return;
+        }
 
-            if (!attributes) {
-              throw new Error(
-                'Pool data unavailable'
-              );
-            }
+        const cleanTokens: PumpToken[] = data
+          .filter(
+            (token: PumpToken) =>
+              token &&
+              token.mint &&
+              !token.nsfw
+          )
+          .sort(
+            (a: PumpToken, b: PumpToken) =>
+              (b.created_timestamp ?? 0) -
+              (a.created_timestamp ?? 0)
+          );
 
-            /*
-             * GeckoTerminal pool endpoint
-             *
-             * base_token_price_usd
-             * price_change_percentage.h24
-             */
+        setTokens(cleanTokens);
+        setError(false);
+        setLoading(false);
+      } catch (err) {
+        console.error(
+          '[RobOnHood] Failed to fetch Pump.fun tokens:',
+          err
+        );
 
-            const rawPrice =
-              attributes.base_token_price_usd;
+        if (cancelled) {
+          return;
+        }
 
-            const numericPrice =
-              Number(rawPrice);
-
-            if (!Number.isFinite(numericPrice)) {
-              throw new Error(
-                'Invalid price'
-              );
-            }
-
-            const rawChange =
-              attributes
-                ?.price_change_percentage
-                ?.h24;
-
-            const numericChange =
-              Number(rawChange);
-
-            if (cancelled) {
-              return;
-            }
-
-            setMarketData((previous) => ({
-              ...previous,
-              [market.poolAddress]: {
-                price:
-                  formatPrice(
-                    numericPrice
-                  ),
-                change24h:
-                  Number.isFinite(
-                    numericChange
-                  )
-                    ? numericChange
-                    : null,
-                loading: false,
-                error: false,
-              },
-            }));
-          } catch (error) {
-            console.error(
-              `[RobOnHood] Failed to fetch ${market.symbol}:`,
-              error
-            );
-
-            if (cancelled) {
-              return;
-            }
-
-            setMarketData((previous) => ({
-              ...previous,
-              [market.poolAddress]: {
-                price: '—',
-                change24h: null,
-                loading: false,
-                error: true,
-              },
-            }));
-          }
-        })
-      );
+        setError(true);
+        setLoading(false);
+      }
     };
 
-    // Initial load
-    fetchMarkets();
+    fetchTokens();
 
-    /*
-     * Refresh once per minute.
-     * GeckoTerminal public API data is cached/rate-limited.
-     */
-    const interval =
-      window.setInterval(
-        fetchMarkets,
-        60_000
-      );
+    // Refresh the newest-token feed every 15 seconds.
+    const interval = window.setInterval(
+      fetchTokens,
+      15_000
+    );
 
     return () => {
       cancelled = true;
@@ -336,26 +321,233 @@ const MarketTickers: React.FC = () => {
     };
   }, []);
 
+  /*
+   * Duplicate the list so the CSS marquee can continuously
+   * move from right → left without an empty gap.
+   */
+  const marqueeTokens =
+    tokens.length > 0
+      ? [...tokens, ...tokens]
+      : [];
+
   return (
     <div
       className="
         flex
         items-center
-        shrink-0
+        min-w-0
+        flex-1
+        mx-4
+        h-14
         overflow-hidden
+        relative
       "
     >
-      {MARKETS.map((market) => (
-        <MarketTicker
-          key={market.poolAddress}
-          market={market}
-          data={
-            marketData[
-              market.poolAddress
-            ]
+      {/* LEFT LIVE LABEL */}
+
+      <div
+        className="
+          flex
+          items-center
+          gap-2
+          px-3
+          h-full
+          bg-white
+          shrink-0
+          z-20
+          border-r
+          border-zinc-100
+        "
+      >
+        <span
+          className="
+            relative
+            flex
+            w-2
+            h-2
+          "
+        >
+          <span
+            className="
+              absolute
+              inline-flex
+              w-full
+              h-full
+              rounded-full
+              bg-emerald-400
+              opacity-75
+              animate-ping
+            "
+          />
+
+          <span
+            className="
+              relative
+              inline-flex
+              w-2
+              h-2
+              rounded-full
+              bg-emerald-500
+            "
+          />
+        </span>
+
+        <span
+          className="
+            text-[8px]
+            font-black
+            uppercase
+            tracking-[0.18em]
+            text-zinc-500
+            whitespace-nowrap
+          "
+        >
+          Pump.fun
+        </span>
+
+        <span
+          className="
+            hidden
+            lg:inline
+            text-[7px]
+            font-bold
+            uppercase
+            tracking-wider
+            text-zinc-300
+            whitespace-nowrap
+          "
+        >
+          New Tokens
+        </span>
+      </div>
+
+      {/* FADE LEFT */}
+
+      <div
+        className="
+          absolute
+          left-0
+          top-0
+          bottom-0
+          w-8
+          bg-gradient-to-r
+          from-white
+          to-transparent
+          z-10
+          pointer-events-none
+        "
+      />
+
+      {/* MARQUEE */}
+
+      <div
+        className="
+          min-w-0
+          flex-1
+          overflow-hidden
+          h-full
+        "
+      >
+        {loading && tokens.length === 0 ? (
+          <div
+            className="
+              h-full
+              flex
+              items-center
+              justify-center
+              text-[8px]
+              font-bold
+              uppercase
+              tracking-wider
+              text-zinc-300
+            "
+          >
+            Loading new tokens...
+          </div>
+        ) : error && tokens.length === 0 ? (
+          <a
+            href="https://pump.fun/explore?tab=created_timestamp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="
+              h-full
+              flex
+              items-center
+              justify-center
+              text-[8px]
+              font-bold
+              uppercase
+              tracking-wider
+              text-zinc-400
+              hover:text-zinc-600
+            "
+          >
+            View Pump.fun New Tokens →
+          </a>
+        ) : (
+          <div
+            className="
+              flex
+              items-center
+              h-full
+              w-max
+              animate-pump-marquee
+              hover:[animation-play-state:paused]
+            "
+          >
+            {marqueeTokens.map(
+              (token, index) => (
+                <PumpTokenItem
+                  key={`${token.mint}-${index}`}
+                  token={token}
+                />
+              )
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* FADE RIGHT */}
+
+      <div
+        className="
+          absolute
+          right-0
+          top-0
+          bottom-0
+          w-8
+          bg-gradient-to-l
+          from-white
+          to-transparent
+          z-10
+          pointer-events-none
+        "
+      />
+
+      {/* INLINE MARQUEE CSS */}
+
+      <style>
+        {`
+          @keyframes pump-marquee {
+            from {
+              transform: translateX(0);
+            }
+
+            to {
+              transform: translateX(-50%);
+            }
           }
-        />
-      ))}
+
+          .animate-pump-marquee {
+            animation:
+              pump-marquee
+              55s
+              linear
+              infinite;
+            will-change: transform;
+          }
+        `}
+      </style>
     </div>
   );
 };
@@ -365,21 +557,12 @@ const MarketTickers: React.FC = () => {
    ============================================================ */
 
 const Header: React.FC = () => {
-  const {
-    llmConfig,
-    isBYOKOpen,
-    setBYOKOpen,
-  } = useUiStore();
-
   const { setViewMode } = useCoreStore();
 
   const [
     isInfoOpen,
     setIsInfoOpen,
   ] = useState(false);
-
-  const hasKey =
-    !!llmConfig.apiKey;
 
   /* ==========================================================
      FULLSCREEN
@@ -424,6 +607,7 @@ const Header: React.FC = () => {
           flex
           items-center
           min-w-0
+          shrink-0
         "
       >
         <img
@@ -517,10 +701,10 @@ const Header: React.FC = () => {
       </div>
 
       {/* ======================================================
-          THREE LIVE MARKETS
+          PUMP.FUN LIVE TOKEN FEED
       ====================================================== */}
 
-      <MarketTickers />
+      <PumpTokenMarquee />
 
       {/* ======================================================
           RIGHT: GLOBAL CONTROLS
@@ -531,6 +715,7 @@ const Header: React.FC = () => {
           flex
           items-center
           gap-3
+          shrink-0
         "
       >
         {/* MANAGE TEAMS */}
@@ -593,7 +778,7 @@ const Header: React.FC = () => {
           "
         />
 
-        {/* FULLSCREEN + API */}
+        {/* FULLSCREEN */}
 
         <div
           className="
@@ -609,47 +794,11 @@ const Header: React.FC = () => {
               hover:text-darkDelegation
               transition-colors
               p-1
+              cursor-pointer
             "
             title="Fullscreen Browser"
           >
             <Maximize2 size={16} />
-          </button>
-
-          <button
-            onClick={() =>
-              setBYOKOpen(true)
-            }
-            className="
-              relative
-              text-zinc-400
-              hover:text-darkDelegation
-              transition-colors
-              p-1
-            "
-            title="API Key (BYOK)"
-          >
-            <KeyRound
-              size={16}
-              className={
-                hasKey
-                  ? 'text-emerald-500 hover:text-emerald-600'
-                  : ''
-              }
-            />
-
-            {hasKey && (
-              <span
-                className="
-                  absolute
-                  top-0.5
-                  right-0.5
-                  w-1.5
-                  h-1.5
-                  rounded-full
-                  bg-emerald-400
-                "
-              />
-            )}
           </button>
         </div>
       </div>
@@ -663,19 +812,6 @@ const Header: React.FC = () => {
           key="info-modal"
           onClose={() =>
             setIsInfoOpen(false)
-          }
-        />
-      )}
-
-      {/* ======================================================
-          BYOK MODAL
-      ====================================================== */}
-
-      {isBYOKOpen && (
-        <BYOKModal
-          key="byok-modal"
-          onClose={() =>
-            setBYOKOpen(false)
           }
         />
       )}
