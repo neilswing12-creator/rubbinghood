@@ -7,24 +7,43 @@ import InfoModal from './InfoModal';
 const version = packageJson.version;
 
 /* ============================================================
-   PUMP.FUN NEW TOKEN FEED
+   LAUNCHPAD.MEME ROBINHOOD CHAIN NEW TOKEN FEED
    ============================================================ */
 
-const PUMP_TOKEN_API =
-  '/api/pump/coins?offset=0&limit=30&sort=created_timestamp&includeNsfw=false&order=DESC';
+const LAUNCHPAD_TOKEN_API =
+  '/api/launchpad/tokens/new?chain=robinhood&limit=50';
 
-const PUMP_BASE_URL = 'https://pump.fun/coin/';
+const LAUNCHPAD_BASE_URL = 'https://launchpad.meme/coin/';
 
-interface PumpToken {
-  mint: string;
+const ROBINHOOD_CHAIN = 'robinhood chain';
+const ROBINHOOD_CHAIN_ID = 4663;
+
+interface LaunchpadToken {
+  id?: number;
+  chain?: string;
+  address?: string;
+  token?: string;
   name?: string;
   symbol?: string;
-  image_uri?: string;
-  created_timestamp?: number;
+  raw_symbol?: string;
+  status?: string;
+  dex?: string;
+  graduation_dex?: string;
+  url?: string;
+  explorer_url?: string;
   market_cap_usd?: number;
-  usd_market_cap?: number;
-  complete?: boolean;
-  nsfw?: boolean;
+  liquidity_usd?: number;
+  volume_24h_usd?: number;
+  price_usd?: number;
+  price_change_24h?: number;
+  bonding_progress?: number;
+  migration_threshold_usd?: number;
+  created_at?: string;
+  creator?: {
+    wallet?: string;
+    username?: string;
+    public_id?: string;
+  };
 }
 
 /* ============================================================
@@ -54,14 +73,16 @@ const formatMarketCap = (value?: number): string => {
 };
 
 /* ============================================================
-   SINGLE PUMP TOKEN
+   SINGLE LAUNCHPAD TOKEN
    ============================================================ */
 
-interface PumpTokenItemProps {
-  token: PumpToken;
+interface LaunchpadTokenItemProps {
+  token: LaunchpadToken;
 }
 
-const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
+const LaunchpadTokenItem: React.FC<LaunchpadTokenItemProps> = ({
+  token,
+}) => {
   const name =
     token.name?.trim() ||
     token.symbol?.trim() ||
@@ -69,18 +90,29 @@ const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
 
   const symbol =
     token.symbol?.trim() ||
+    token.raw_symbol?.trim() ||
     'TOKEN';
 
-  const marketCap =
-    token.usd_market_cap ??
-    token.market_cap_usd;
+  const cleanSymbol = symbol.replace(/^\$/, '');
+
+  const marketCap = token.market_cap_usd;
+
+  const tokenAddress =
+    token.address?.trim() ||
+    token.token?.trim();
+
+  const tokenUrl =
+    token.url?.trim() ||
+    (tokenAddress
+      ? `${LAUNCHPAD_BASE_URL}${tokenAddress}`
+      : 'https://launchpad.meme/');
 
   return (
     <a
-      href={`${PUMP_BASE_URL}${token.mint}`}
+      href={tokenUrl}
       target="_blank"
       rel="noopener noreferrer"
-      title={`View ${name} on Pump.fun`}
+      title={`View ${name} on Launchpad.meme`}
       className="
         group
         flex
@@ -110,36 +142,32 @@ const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
           shrink-0
         "
       >
-        {token.image_uri ? (
-          <img
-            src={token.image_uri}
-            alt=""
-            className="
-              w-full
-              h-full
-              object-cover
-              group-hover:scale-110
-              transition-transform
-            "
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div
-            className="
-              w-full
-              h-full
-              flex
-              items-center
-              justify-center
-              text-[8px]
-              font-black
-              text-zinc-400
-            "
-          >
-            $
-          </div>
-        )}
+        {/*
+
+          The /api/public/tokens/new endpoint does not return
+          a logo URL directly.
+
+          We therefore use a clean token placeholder here.
+
+          The richer /token-list/robinhood.json endpoint can
+          be added later if we want actual token images.
+        */}
+
+        <div
+          className="
+            w-full
+            h-full
+            flex
+            items-center
+            justify-center
+            text-[8px]
+            font-black
+            text-zinc-400
+            uppercase
+          "
+        >
+          {cleanSymbol.slice(0, 2)}
+        </div>
       </div>
 
       {/* TOKEN NAME */}
@@ -157,7 +185,7 @@ const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
               truncate
             "
           >
-            ${symbol}
+            ${cleanSymbol}
           </span>
 
           {/* NEW INDICATOR */}
@@ -183,6 +211,7 @@ const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
                 animate-pulse
               "
             />
+
             NEW
           </span>
         </div>
@@ -241,11 +270,11 @@ const PumpTokenItem: React.FC<PumpTokenItemProps> = ({ token }) => {
 };
 
 /* ============================================================
-   PUMP.FUN MARQUEE
+   LAUNCHPAD.MEME MARQUEE
    ============================================================ */
 
-const PumpTokenMarquee: React.FC = () => {
-  const [tokens, setTokens] = useState<PumpToken[]>([]);
+const LaunchpadTokenMarquee: React.FC = () => {
+  const [tokens, setTokens] = useState<LaunchpadToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -254,7 +283,7 @@ const PumpTokenMarquee: React.FC = () => {
 
     const fetchTokens = async () => {
       try {
-        const response = await fetch(PUMP_TOKEN_API, {
+        const response = await fetch(LAUNCHPAD_TOKEN_API, {
           method: 'GET',
           headers: {
             Accept: 'application/json',
@@ -263,38 +292,70 @@ const PumpTokenMarquee: React.FC = () => {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          throw new Error(
+            `Launchpad API returned HTTP ${response.status}`
+          );
         }
 
         const data = await response.json();
 
-        if (!Array.isArray(data)) {
-          throw new Error('Invalid Pump.fun response');
+        if (!data || !Array.isArray(data.items)) {
+          throw new Error(
+            'Invalid Launchpad.meme response'
+          );
         }
 
         if (cancelled) {
           return;
         }
 
-        const cleanTokens: PumpToken[] = data
-          .filter(
-            (token: PumpToken) =>
-              token &&
-              token.mint &&
-              !token.nsfw
-          )
-          .sort(
-            (a: PumpToken, b: PumpToken) =>
-              (b.created_timestamp ?? 0) -
-              (a.created_timestamp ?? 0)
-          );
+        /*
+         * IMPORTANT:
+         *
+         * The API can return tokens from multiple chains even
+         * when chain=robinhood is supplied.
+         *
+         * Therefore we explicitly filter the response to
+         * Robinhood Chain.
+         */
+
+        const cleanTokens: LaunchpadToken[] = data.items
+          .filter((token: LaunchpadToken) => {
+            if (!token) {
+              return false;
+            }
+
+            const chain =
+              String(token.chain || '').trim().toLowerCase();
+
+            const address =
+              token.address?.trim() ||
+              token.token?.trim();
+
+            return (
+              chain === ROBINHOOD_CHAIN &&
+              ROBINHOOD_CHAIN_ID === 4663 &&
+              Boolean(address)
+            );
+          })
+          .sort((a: LaunchpadToken, b: LaunchpadToken) => {
+            const aTime = a.created_at
+              ? new Date(a.created_at).getTime()
+              : 0;
+
+            const bTime = b.created_at
+              ? new Date(b.created_at).getTime()
+              : 0;
+
+            return bTime - aTime;
+          });
 
         setTokens(cleanTokens);
         setError(false);
         setLoading(false);
       } catch (err) {
         console.error(
-          '[RobOnHood] Failed to fetch Pump.fun tokens:',
+          '[RobOnHood] Failed to fetch Launchpad.meme Robinhood tokens:',
           err
         );
 
@@ -309,7 +370,13 @@ const PumpTokenMarquee: React.FC = () => {
 
     fetchTokens();
 
-    // Refresh the newest-token feed every 15 seconds.
+    /*
+     * Refresh the newest-token feed every 15 seconds.
+     *
+     * Launchpad's documentation recommends caching public
+     * indexer responses for roughly 5–15 seconds.
+     */
+
     const interval = window.setInterval(
       fetchTokens,
       15_000
@@ -325,6 +392,7 @@ const PumpTokenMarquee: React.FC = () => {
    * Duplicate the list so the CSS marquee can continuously
    * move from right → left without an empty gap.
    */
+
   const marqueeTokens =
     tokens.length > 0
       ? [...tokens, ...tokens]
@@ -402,7 +470,7 @@ const PumpTokenMarquee: React.FC = () => {
             whitespace-nowrap
           "
         >
-          Pump.fun
+          Launchpad
         </span>
 
         <span
@@ -462,11 +530,11 @@ const PumpTokenMarquee: React.FC = () => {
               text-zinc-300
             "
           >
-            Loading new tokens...
+            Loading new Robinhood tokens...
           </div>
         ) : error && tokens.length === 0 ? (
           <a
-            href="https://pump.fun/explore?tab=created_timestamp"
+            href="https://launchpad.meme/?lang=en&sort=chain_robinhood"
             target="_blank"
             rel="noopener noreferrer"
             className="
@@ -482,7 +550,7 @@ const PumpTokenMarquee: React.FC = () => {
               hover:text-zinc-600
             "
           >
-            View Pump.fun New Tokens →
+            View Launchpad.meme Robinhood Tokens →
           </a>
         ) : (
           <div
@@ -491,17 +559,24 @@ const PumpTokenMarquee: React.FC = () => {
               items-center
               h-full
               w-max
-              animate-pump-marquee
+              animate-launchpad-marquee
               hover:[animation-play-state:paused]
             "
           >
             {marqueeTokens.map(
-              (token, index) => (
-                <PumpTokenItem
-                  key={`${token.mint}-${index}`}
-                  token={token}
-                />
-              )
+              (token, index) => {
+                const address =
+                  token.address ||
+                  token.token ||
+                  `unknown-${index}`;
+
+                return (
+                  <LaunchpadTokenItem
+                    key={`${address}-${index}`}
+                    token={token}
+                  />
+                );
+              }
             )}
           </div>
         )}
@@ -528,7 +603,7 @@ const PumpTokenMarquee: React.FC = () => {
 
       <style>
         {`
-          @keyframes pump-marquee {
+          @keyframes launchpad-marquee {
             from {
               transform: translateX(0);
             }
@@ -538,9 +613,9 @@ const PumpTokenMarquee: React.FC = () => {
             }
           }
 
-          .animate-pump-marquee {
+          .animate-launchpad-marquee {
             animation:
-              pump-marquee
+              launchpad-marquee
               55s
               linear
               infinite;
@@ -701,10 +776,10 @@ const Header: React.FC = () => {
       </div>
 
       {/* ======================================================
-          PUMP.FUN LIVE TOKEN FEED
+          LAUNCHPAD.MEME LIVE TOKEN FEED
       ====================================================== */}
 
-      <PumpTokenMarquee />
+      <LaunchpadTokenMarquee />
 
       {/* ======================================================
           RIGHT: GLOBAL CONTROLS
