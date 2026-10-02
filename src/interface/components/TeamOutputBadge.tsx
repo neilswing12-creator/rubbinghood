@@ -20,14 +20,18 @@ interface TeamOutputBadgeProps {
    ROBONHOOD CONTRACT
    ============================================================ */
 
-   const ROBONHOOD_CONTRACT: string =
-   '0x000000000000000000000000000000000000dEaD';
+const ROBONHOOD_CONTRACT: string =
+  '0x000000000000000000000000000000000000dEaD';
 
 export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
   system,
   className = '',
 }) => {
   const [copied, setCopied] = useState(false);
+
+  /* ============================================================
+     COPY CONTRACT
+     ============================================================ */
 
   const handleCopyContract = async () => {
     try {
@@ -48,14 +52,6 @@ export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
     }
   };
 
-  const shortenedContract =
-    ROBONHOOD_CONTRACT.length > 14
-      ? `${ROBONHOOD_CONTRACT.slice(
-          0,
-          6
-        )}...${ROBONHOOD_CONTRACT.slice(-6)}`
-      : ROBONHOOD_CONTRACT;
-
   return (
     <div
       className={`
@@ -75,9 +71,19 @@ export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
     >
       {/* ======================================================
           LEFT COLUMN
+          OUTPUT TYPE + AUTO APPROVE
       ====================================================== */}
 
-      <div className="flex flex-col justify-center gap-1 pr-3">
+      <div
+        className="
+          flex
+          flex-col
+          justify-center
+          gap-1
+          pr-3
+          shrink-0
+        "
+      >
         {/* Output Type */}
 
         <div className="flex items-center gap-1.5 text-zinc-400">
@@ -123,7 +129,7 @@ export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
           </span>
         </div>
 
-        {/* Auto Approve */}
+        {/* Auto Approve Status */}
 
         {system.outputAutoApprove !== undefined && (
           <InfoTooltip
@@ -168,25 +174,28 @@ export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
         )}
       </div>
 
-      {/* DIVIDER */}
+      {/* ======================================================
+          DIVIDER
+      ====================================================== */}
 
-      <div className="w-px h-7 bg-zinc-200/50" />
+      <div className="w-px h-7 bg-zinc-200/50 shrink-0" />
 
       {/* ======================================================
-          RIGHT COLUMN
+          GENERATION MODEL COLUMN
       ====================================================== */}
 
       <div
         className="
           flex
           flex-col
+          justify-center
           gap-1
-          min-w-0
+          pr-4
           pl-1
+          min-w-[105px]
+          shrink-0
         "
       >
-        {/* Generation Model */}
-
         <span
           className="
             text-[7px]
@@ -212,12 +221,44 @@ export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
         >
           robonhoodai
         </span>
+      </div>
 
-        {/* Contract Address */}
+      {/* ======================================================
+          DIVIDER
+      ====================================================== */}
+
+      <div className="w-px h-7 bg-zinc-200/50 shrink-0" />
+
+      {/* ======================================================
+          CONTRACT COLUMN
+      ====================================================== */}
+
+      <div
+        className="
+          flex
+          flex-col
+          justify-center
+          gap-1
+          pl-1
+          min-w-0
+        "
+      >
+        <span
+          className="
+            text-[7px]
+            font-black
+            text-zinc-300
+            uppercase
+            tracking-widest
+            leading-none
+          "
+        >
+          CONTRACT ADDRESS
+        </span>
 
         <button
-  type="button"
-  onClick={handleCopyContract}
+          type="button"
+          onClick={handleCopyContract}
           title={
             copied
               ? 'Contract address copied'
@@ -230,42 +271,31 @@ export const TeamOutputBadge: React.FC<TeamOutputBadgeProps> = ({
             text-left
             group
             cursor-pointer
-            disabled:cursor-default
+            w-fit
+            max-w-full
           "
         >
           <span
             className="
-              text-[6px]
-              font-black
-              text-zinc-300
-              uppercase
-              tracking-widest
-              leading-none
-            "
-          >
-            CONTRACT
-          </span>
-
-          <span
-            className="
-              text-[7px]
+              text-[8px]
               font-mono
               font-bold
               text-zinc-400
               group-hover:text-blue-500
               transition-colors
-              truncate
+              whitespace-nowrap
             "
           >
-            {copied
-              ? 'COPIED'
-              : shortenedContract}
+            {ROBONHOOD_CONTRACT}
           </span>
 
           {copied ? (
             <Check
               size={9}
-              className="text-emerald-500 shrink-0"
+              className="
+                text-emerald-500
+                shrink-0
+              "
             />
           ) : (
             <Copy
