@@ -24,13 +24,26 @@ export interface ThinkOptions {
 
 /**
  * ============================================================
- * ROBINHOOD / BASEDBOT CONFIGURATION
+ * ROBINHOOD / DEXSCREENER CONFIGURATION
  * ============================================================
+ *
+ * AgentBrain automatically detects EVM contract addresses
+ * inside user prompts and retrieves live Robinhood Chain
+ * market data through our own VPS API.
+ *
+ * Browser:
+ *   /api/dex/token/{contract}
+ *
+ * Nginx:
+ *   /api/dex/ -> 127.0.0.1:8085
+ *
+ * VPS service:
+ *   DexScreener API
  */
 
 const ROBINHOOD_CHAIN = 'ROBINHOOD';
 
-const BASEDBOT_PROXY_PATH = '/api/basedbot/';
+const DEXSCREENER_PROXY_PATH = '/api/dex/token/';
 
 /**
  * Detect an EVM contract address inside any text.
@@ -59,18 +72,29 @@ function extractContractAddress(
 }
 
 /**
- * Fetch token data from BasedBot through our own
- * RobOnHood API proxy.
+ * ============================================================
+ * DEXSCREENER TOKEN RETRIEVAL
+ * ============================================================
  *
- * The browser calls:
+ * Fetch live token data through the RobOnHood VPS proxy.
  *
- * /api/basedbot/{contract}
+ * IMPORTANT:
  *
- * Nginx should forward that request to:
+ * The frontend never talks directly to DexScreener.
  *
- * https://api.basedbot.app/api/v1/thesis/token/ROBINHOOD/{contract}
+ * Instead:
+ *
+ * Browser
+ *   ↓
+ * /api/dex/token/{address}
+ *   ↓
+ * Nginx
+ *   ↓
+ * 127.0.0.1:8085
+ *   ↓
+ * DexScreener
  */
-async function fetchBasedBotToken(
+async function fetchDexScreenerToken(
   address: string
 ): Promise<{
   address: string;
@@ -93,43 +117,81 @@ async function fetchBasedBotToken(
   }
 
   const endpoint =
-    `${BASEDBOT_PROXY_PATH}` +
-    `${encodeURIComponent(normalizedAddress)}` +
-    `?sort=recent&limit=10&offset=0`;
+    `${DEXSCREENER_PROXY_PATH}` +
+    `${encodeURIComponent(normalizedAddress)}`;
 
   console.log(
-    `[AgentBrain] Fetching BasedBot data: ${endpoint}`
+    `[AgentBrain] Fetching DexScreener data: ${endpoint}`
   );
 
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  });
+  const controller =
+    new AbortController();
 
-  if (!response.ok) {
-    throw new Error(
-      `BasedBot request failed: ${response.status} ${response.statusText}`
+  const timeout =
+    setTimeout(() => {
+      controller.abort();
+    }, 15000);
+
+  try {
+    const response = await fetch(
+      endpoint,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      }
     );
+
+    if (!response.ok) {
+      let errorDetails = '';
+
+      try {
+        const errorBody =
+          await response.text();
+
+        if (errorBody) {
+          errorDetails =
+            ` - ${errorBody.slice(0, 500)}`;
+        }
+      } catch {
+        // Ignore response parsing errors.
+      }
+
+      throw new Error(
+        `DexScreener request failed: ` +
+        `${response.status} ${response.statusText}` +
+        errorDetails
+      );
+    }
+
+    const data =
+      await response.json();
+
+    return {
+      address: normalizedAddress,
+      chain: ROBINHOOD_CHAIN,
+      source: 'DexScreener',
+      url:
+        data?.pair?.url ||
+        `https://dexscreener.com/robinhood/${normalizedAddress}`,
+      data,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = await response.json();
-
-  return {
-    address: normalizedAddress,
-    chain: ROBINHOOD_CHAIN,
-    source: 'BasedBot',
-    url: `https://basedbot.app/token/robinhood/${normalizedAddress}`,
-    data,
-  };
 }
 
 /**
- * Create the extra context that gets attached to Gemini.
+ * ============================================================
+ * TOKEN CONTEXT
+ * ============================================================
  *
- * This makes sure Gemini knows that the token information
- * came from BasedBot and must not be fabricated.
+ * Creates explicit context for Gemini.
+ *
+ * The model is instructed to treat retrieved values as facts
+ * and never fabricate unavailable market statistics.
  */
 function buildTokenContext(
   tokenData: {
@@ -140,6 +202,30 @@ function buildTokenContext(
     data: any;
   }
 ): string {
+  const data =
+    tokenData.data || {};
+
+  const token =
+    data.token || {};
+
+  const pair =
+    data.pair || {};
+
+  const price =
+    data.price || {};
+
+  const market =
+    data.market || {};
+
+  const volume =
+    data.volume || {};
+
+  const priceChange =
+    data.priceChange || {};
+
+  const transactions =
+    data.transactions || {};
+
   return `
 
 ============================================================
@@ -149,51 +235,211 @@ ROBINHOOD CHAIN TOKEN DATA
 SOURCE:
 ${tokenData.source}
 
+SOURCE URL:
+${tokenData.url}
+
 CHAIN:
 ${tokenData.chain}
 
 CONTRACT ADDRESS:
 ${tokenData.address}
 
-BASED BOT URL:
-${tokenData.url}
+The contract address is the primary identifier of the token.
 
-The following data was retrieved automatically from BasedBot.
+------------------------------------------------------------
+TOKEN
+------------------------------------------------------------
 
-Treat this information as the factual source for the token
-being analyzed.
+Name:
+${token.name ?? 'Unavailable'}
 
-Do NOT invent, estimate, or hallucinate token statistics.
+Symbol:
+${token.symbol ?? 'Unavailable'}
 
----------------- BASEDBOT RESPONSE ----------------
+Address:
+${token.address ?? tokenData.address}
 
-${JSON.stringify(tokenData.data, null, 2)}
+------------------------------------------------------------
+PRICE
+------------------------------------------------------------
 
----------------- END BASEDBOT RESPONSE ----------------
+Price USD:
+${price.usd ?? 'Unavailable'}
 
-TOKEN ANALYSIS RULES:
+Price in native currency:
+${price.native ?? 'Unavailable'}
+
+------------------------------------------------------------
+MARKET
+------------------------------------------------------------
+
+Market Cap USD:
+${market.marketCapUsd ?? 'Unavailable'}
+
+FDV USD:
+${market.fdvUsd ?? 'Unavailable'}
+
+Liquidity USD:
+${market.liquidityUsd ?? 'Unavailable'}
+
+Liquidity Base:
+${market.liquidityBase ?? 'Unavailable'}
+
+Liquidity Quote:
+${market.liquidityQuote ?? 'Unavailable'}
+
+------------------------------------------------------------
+VOLUME
+------------------------------------------------------------
+
+5 minute:
+${volume.m5 ?? 'Unavailable'}
+
+1 hour:
+${volume.h1 ?? 'Unavailable'}
+
+6 hours:
+${volume.h6 ?? 'Unavailable'}
+
+24 hours:
+${volume.h24 ?? 'Unavailable'}
+
+------------------------------------------------------------
+PRICE CHANGE
+------------------------------------------------------------
+
+5 minute:
+${priceChange.m5 ?? 'Unavailable'}%
+
+1 hour:
+${priceChange.h1 ?? 'Unavailable'}%
+
+6 hours:
+${priceChange.h6 ?? 'Unavailable'}%
+
+24 hours:
+${priceChange.h24 ?? 'Unavailable'}%
+
+------------------------------------------------------------
+TRANSACTIONS
+------------------------------------------------------------
+
+5 minute:
+${JSON.stringify(
+  transactions.m5 ?? {},
+  null,
+  2
+)}
+
+1 hour:
+${JSON.stringify(
+  transactions.h1 ?? {},
+  null,
+  2
+)}
+
+6 hours:
+${JSON.stringify(
+  transactions.h6 ?? {},
+  null,
+  2
+)}
+
+24 hours:
+${JSON.stringify(
+  transactions.h24 ?? {},
+  null,
+  2
+)}
+
+------------------------------------------------------------
+PAIR
+------------------------------------------------------------
+
+Pair Address:
+${pair.address ?? 'Unavailable'}
+
+DEX:
+${pair.dex ?? 'Unavailable'}
+
+Labels:
+${JSON.stringify(
+  pair.labels ?? [],
+  null,
+  2
+)}
+
+Pair URL:
+${pair.url ?? 'Unavailable'}
+
+Pair Created At:
+${data.pairCreatedAt ?? 'Unavailable'}
+
+Quote Token:
+${JSON.stringify(
+  data.quoteToken ?? {},
+  null,
+  2
+)}
+
+------------------------------------------------------------
+ALL ROBINHOOD PAIRS
+------------------------------------------------------------
+
+${JSON.stringify(
+  data.allRobinhoodPairs ?? [],
+  null,
+  2
+)}
+
+============================================================
+RAW DEXSCREENER DATA
+============================================================
+
+${JSON.stringify(
+  data,
+  null,
+  2
+)}
+
+============================================================
+TOKEN ANALYSIS RULES
+============================================================
 
 1. The token being analyzed is identified by the contract
    address above.
 
-2. The token is on Robinhood Chain.
+2. The token data was retrieved automatically from
+   DexScreener through the RobOnHood VPS API.
 
-3. Use the retrieved BasedBot information whenever discussing
-   the token.
+3. Treat retrieved market information as factual source data.
 
-4. Do not fabricate price, market cap, liquidity, volume,
-   holders, transactions, buys, sells, or other statistics.
+4. Do NOT invent, estimate, or hallucinate token statistics.
 
-5. If a requested metric is not available in the retrieved
-   BasedBot response, clearly state that it is unavailable.
+5. Do not fabricate price, market cap, FDV, liquidity,
+   volume, transactions, buys, sells, price changes,
+   pair information, or other live statistics.
 
-6. Do not confuse this token with another token that has
+6. If a requested metric is not present in the retrieved
+   data, clearly state that it is unavailable.
+
+7. Do not confuse this token with another token that has
    a similar name or symbol.
 
-7. The contract address is the primary identifier.
+8. The contract address is more important than the token
+   name or symbol when identifying the token.
 
-8. When the user asks for analysis, distinguish between
-   retrieved facts and your own analysis.
+9. When analyzing the token, clearly distinguish:
+   - retrieved facts
+   - calculations based on retrieved facts
+   - analytical interpretation
+
+10. Do not present analytical interpretation as if it were
+    retrieved market data.
+
+11. The retrieved data represents a snapshot taken when
+    this request was made. Market data can change after
+    retrieval.
 
 ============================================================
 END ROBINHOOD TOKEN DATA
@@ -202,7 +448,13 @@ END ROBINHOOD TOKEN DATA
 }
 
 /**
- * Build fallback context when BasedBot cannot be reached.
+ * ============================================================
+ * TOKEN FAILURE CONTEXT
+ * ============================================================
+ *
+ * If DexScreener cannot retrieve the token, tell Gemini
+ * exactly what happened instead of allowing it to invent
+ * market data.
  */
 function buildTokenFailureContext(
   address: string,
@@ -223,19 +475,21 @@ A Robinhood Chain contract address was detected:
 
 ${address}
 
-However, the automatic BasedBot lookup failed.
+However, the automatic DexScreener lookup failed.
 
 Technical error:
 ${errorMessage}
 
 IMPORTANT:
+
 - Do not fabricate live token statistics.
-- Do not invent price, market cap, liquidity, volume,
-  holders, transactions, buys, or sells.
-- If the user's request requires live token data, explain
-  that BasedBot data could not be retrieved.
-- You may still answer general questions that do not require
-  unavailable live data.
+- Do not invent price, market cap, FDV, liquidity,
+  volume, holders, transactions, buys, sells, or
+  price changes.
+- If the user's request requires live token data,
+  explain that DexScreener data could not be retrieved.
+- You may still answer general questions that do not
+  require unavailable live data.
 
 ============================================================
 END TOKEN RETRIEVAL NOTICE
@@ -351,15 +605,16 @@ export class AgentBrain {
 
         try {
           /*
-           * Retrieve live token information from BasedBot.
+           * Retrieve live token information
+           * from DexScreener through our VPS.
            */
           const tokenData =
-            await fetchBasedBotToken(
+            await fetchDexScreenerToken(
               contractAddress
             );
 
           console.log(
-            '[AgentBrain] BasedBot token data retrieved successfully.'
+            '[AgentBrain] DexScreener token data retrieved successfully.'
           );
 
           /*
@@ -373,7 +628,7 @@ export class AgentBrain {
             );
         } catch (error) {
           console.error(
-            '[AgentBrain] BasedBot lookup failed:',
+            '[AgentBrain] DexScreener lookup failed:',
             error
           );
 
@@ -400,7 +655,7 @@ export class AgentBrain {
        * IMPORTANT:
        *
        * We store enrichedPrompt, not the original prompt,
-       * so the BasedBot data remains available in the
+       * so the DexScreener data remains available in the
        * agent's conversation history.
        */
 
@@ -436,7 +691,7 @@ export class AgentBrain {
        * the user's latest message into history.
        *
        * If the latest history item is a user message, replace
-       * that message with the enriched BasedBot version.
+       * that message with the enriched DexScreener version.
        *
        * Otherwise, add the enriched message.
        */

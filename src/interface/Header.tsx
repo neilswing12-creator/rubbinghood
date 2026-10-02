@@ -1,4 +1,4 @@
-import { Info, Maximize2, Settings } from 'lucide-react';
+import { ExternalLink, Info, Maximize2, Settings } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import packageJson from '../../package.json';
 import { useCoreStore } from '../integration/store/coreStore';
@@ -7,143 +7,70 @@ import InfoModal from './InfoModal';
 const version = packageJson.version;
 
 /* ============================================================
-   LAUNCHPAD.MEME ROBINHOOD CHAIN
+   DEXSCREENER ROBINHOOD CHAIN
    ============================================================ */
 
-const NEW_TOKENS_API =
-  '/api/launchpad/tokens/new?chain=robinhood&limit=50';
-
-const TOKEN_PROFILES_API =
-  '/api/launchpad-feed/robinhood.json';
-
-const LAUNCHPAD_BASE_URL =
-  'https://launchpad.meme/coin/';
-
-const ROBINHOOD_CHAIN = 'robinhood';
-const ROBINHOOD_CHAIN_ID = 4663;
+const DEX_ROBINHOOD_API = '/api/dex/robinhood';
+const DEXSCREENER_BASE_URL = 'https://dexscreener.com/robinhood';
 
 /* ============================================================
    TYPES
    ============================================================ */
 
-interface NewToken {
-  id?: number;
-  chain?: string;
-  address?: string;
-  token?: string;
-  name?: string;
-  symbol?: string;
-  raw_symbol?: string;
-  status?: string;
-  url?: string;
-  market_cap_usd?: number;
-  liquidity_usd?: number;
-  volume_24h_usd?: number;
-  price_usd?: number;
-  price_change_24h?: number;
-  created_at?: string;
-  creator?: {
-    wallet?: string;
-    username?: string;
-  };
+interface DexToken {
+  address: string;
+  name: string;
+  symbol: string;
+  logo?: string | null;
+
+  priceUsd?: string | null;
+
+  marketCap?: number | null;
+  fdv?: number | null;
+  liquidityUsd?: number | null;
+  volume24h?: number | null;
+  priceChange24h?: number | null;
+
+  buys24h?: number | null;
+  sells24h?: number | null;
+
+  pairAddress?: string | null;
+  dex?: string | null;
+  labels?: string[];
+
+  url?: string | null;
 }
 
-interface TokenProfile {
-  token_id?: number;
+interface DexResponse {
+  source?: string;
   chain?: string;
-  chain_id?: number;
-  address?: string;
-  pool_address?: string;
-  name?: string;
-  symbol?: string;
-  created_at?: string;
-
-  metadata?: {
-    logo_url?: string;
-    icon?: string;
-    header?: string;
-    website?: string;
-    x?: string;
-    telegram?: string;
-    discord?: string;
-    name?: string;
-    symbol?: string;
-    description?: string;
-    metadata_url?: string;
-  };
-
-  market?: {
-    price_usd?: number;
-    market_cap_usd?: number;
-    liquidity_usd?: number;
-    volume_24h_usd?: number;
-    price_change_5m?: number;
-    price_change_1h?: number;
-    price_change_24h?: number;
-    holders?: number;
-    buys_24h?: number;
-    sells_24h?: number;
-  };
-
-  organic_momentum?: {
-    window?: string;
-    score?: number;
-    tier?: string;
-    eligible?: boolean;
-    organic_volume_usd?: number;
-    adjusted_volume_usd?: number;
-    buy_volume_usd?: number;
-    sell_volume_usd?: number;
-    buys?: number;
-    sells?: number;
-    tx_count?: number;
-    qualified_tx_count?: number;
-    unique_traders?: number;
-    unique_buyers?: number;
-    unique_sellers?: number;
-  };
-
-  links?: {
-    launchpad?: string;
-    explorer?: string;
-    uniswap?: string;
-  };
-}
-
-interface LaunchpadToken
-  extends NewToken {
-  profile?: TokenProfile;
+  chainId?: number;
+  updatedAt?: string;
+  stale?: boolean;
+  items?: DexToken[];
 }
 
 /* ============================================================
    FORMATTERS
    ============================================================ */
 
-const formatUSD = (
-  value?: number
-): string => {
-  if (!Number.isFinite(value)) {
+const formatUSD = (value?: number | null): string => {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
     return '—';
   }
 
   const number = Number(value);
 
   if (number >= 1_000_000_000) {
-    return `$${(
-      number / 1_000_000_000
-    ).toFixed(2)}B`;
+    return `$${(number / 1_000_000_000).toFixed(2)}B`;
   }
 
   if (number >= 1_000_000) {
-    return `$${(
-      number / 1_000_000
-    ).toFixed(2)}M`;
+    return `$${(number / 1_000_000).toFixed(2)}M`;
   }
 
   if (number >= 1_000) {
-    return `$${(
-      number / 1_000
-    ).toFixed(2)}K`;
+    return `$${(number / 1_000).toFixed(2)}K`;
   }
 
   if (number >= 1) {
@@ -157,10 +84,12 @@ const formatUSD = (
   return '$0';
 };
 
-const formatPercent = (
-  value?: number
-): string => {
-  if (!Number.isFinite(value)) {
+const formatPercent = (value?: number | null): string => {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(value)
+  ) {
     return '0.0%';
   }
 
@@ -177,78 +106,48 @@ const formatPercent = (
    TOKEN ITEM
    ============================================================ */
 
-interface LaunchpadTokenItemProps {
-  token: LaunchpadToken;
+interface DexTokenItemProps {
+  token: DexToken;
 }
 
-const LaunchpadTokenItem: React.FC<
-  LaunchpadTokenItemProps
-> = ({ token }) => {
-  const profile = token.profile;
-
+const DexTokenItem: React.FC<DexTokenItemProps> = ({ token }) => {
   const name =
-    profile?.metadata?.name?.trim() ||
-    profile?.name?.trim() ||
     token.name?.trim() ||
     token.symbol?.trim() ||
     'Unknown Token';
 
   const symbol =
-    profile?.metadata?.symbol?.trim() ||
-    profile?.symbol?.trim() ||
     token.symbol?.trim() ||
-    token.raw_symbol?.trim() ||
     'TOKEN';
 
-  const cleanSymbol =
-    symbol.replace(/^\$/, '');
+  const cleanSymbol = symbol.replace(/^\$/, '');
 
-  const address =
-    token.address?.trim() ||
-    token.token?.trim() ||
-    profile?.address?.trim();
+  const address = token.address?.trim();
 
   const tokenUrl =
     token.url?.trim() ||
-    profile?.links?.launchpad?.trim() ||
-    (address
-      ? `${LAUNCHPAD_BASE_URL}${address}`
-      : 'https://launchpad.meme/');
+    (token.pairAddress
+      ? `${DEXSCREENER_BASE_URL}/${token.pairAddress}`
+      : address
+        ? `${DEXSCREENER_BASE_URL}/${address}`
+        : DEXSCREENER_BASE_URL);
 
-  const logo =
-    profile?.metadata?.logo_url ||
-    profile?.metadata?.icon ||
-    '';
+  const logo = token.logo || '';
 
-  const marketCap =
-    profile?.market?.market_cap_usd ??
-    token.market_cap_usd;
+  const marketCap = token.marketCap ?? 0;
+  const liquidity = token.liquidityUsd ?? 0;
+  const volume24h = token.volume24h ?? 0;
+  const priceChange = token.priceChange24h ?? 0;
 
-  const liquidity =
-    profile?.market?.liquidity_usd ??
-    token.liquidity_usd;
-
-  const volume24h =
-    profile?.market?.volume_24h_usd ??
-    token.volume_24h_usd;
-
-  const priceChange =
-    profile?.market?.price_change_24h ??
-    token.price_change_24h ??
-    0;
-
-  const isPositive =
-    priceChange > 0;
-
-  const isNegative =
-    priceChange < 0;
+  const isPositive = priceChange > 0;
+  const isNegative = priceChange < 0;
 
   return (
     <a
       href={tokenUrl}
       target="_blank"
       rel="noopener noreferrer"
-      title={`View ${name} on Launchpad.meme`}
+      title={`View ${name} on DexScreener`}
       className="
         group
         flex
@@ -294,8 +193,7 @@ const LaunchpadTokenItem: React.FC<
             loading="lazy"
             referrerPolicy="no-referrer"
             onError={(event) => {
-              event.currentTarget.style.display =
-                'none';
+              event.currentTarget.style.display = 'none';
             }}
           />
         ) : (
@@ -330,13 +228,7 @@ const LaunchpadTokenItem: React.FC<
           w-[105px]
         "
       >
-        <div
-          className="
-            flex
-            items-center
-            gap-1.5
-          "
-        >
+        <div className="flex items-center gap-1.5">
           <span
             className="
               text-[9px]
@@ -350,8 +242,6 @@ const LaunchpadTokenItem: React.FC<
             ${cleanSymbol}
           </span>
 
-          {/* NEW */}
-
           <span
             className="
               flex
@@ -361,7 +251,7 @@ const LaunchpadTokenItem: React.FC<
               font-black
               uppercase
               tracking-wider
-              text-emerald-500
+              text-blue-500
               shrink-0
             "
           >
@@ -370,12 +260,12 @@ const LaunchpadTokenItem: React.FC<
                 w-1.5
                 h-1.5
                 rounded-full
-                bg-emerald-400
+                bg-blue-400
                 animate-pulse
               "
             />
 
-            NEW
+            LIVE
           </span>
         </div>
 
@@ -495,7 +385,7 @@ const LaunchpadTokenItem: React.FC<
             text-zinc-300
           "
         >
-          24H
+          24H VOL
         </span>
 
         <span
@@ -528,8 +418,8 @@ const LaunchpadTokenItem: React.FC<
             isPositive
               ? 'text-emerald-500'
               : isNegative
-              ? 'text-red-500'
-              : 'text-zinc-400'
+                ? 'text-red-500'
+                : 'text-zinc-400'
           }
         `}
       >
@@ -561,103 +451,41 @@ const LaunchpadTokenItem: React.FC<
 };
 
 /* ============================================================
-   LAUNCHPAD MARQUEE
+   DEXSCREENER MARQUEE
    ============================================================ */
 
-const LaunchpadTokenMarquee: React.FC = () => {
-  const [tokens, setTokens] =
-    useState<LaunchpadToken[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState(false);
+const DexScreenerTokenMarquee: React.FC = () => {
+  const [tokens, setTokens] = useState<DexToken[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     const fetchTokens = async () => {
       try {
-        /*
-         * ------------------------------------------------------
-         * STEP 1
-         * Get the newest launches.
-         * ------------------------------------------------------
-         */
+        const response = await fetch(DEX_ROBINHOOD_API, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+          },
+          cache: 'no-store',
+        });
 
-        const [
-          newTokensResponse,
-          profilesResponse,
-        ] = await Promise.all([
-          fetch(
-            NEW_TOKENS_API,
-            {
-              method: 'GET',
-              headers: {
-                Accept:
-                  'application/json',
-              },
-              cache: 'no-store',
-            }
-          ),
-
-          fetch(
-            TOKEN_PROFILES_API,
-            {
-              method: 'GET',
-              headers: {
-                Accept:
-                  'application/json',
-              },
-              cache: 'no-store',
-            }
-          ),
-        ]);
-
-        if (
-          !newTokensResponse.ok
-        ) {
+        if (!response.ok) {
           throw new Error(
-            `New token API returned HTTP ${newTokensResponse.status}`
+            `DexScreener API returned HTTP ${response.status}`
           );
         }
 
-        if (
-          !profilesResponse.ok
-        ) {
-          throw new Error(
-            `Profile API returned HTTP ${profilesResponse.status}`
-          );
-        }
-
-        const [
-          newTokensData,
-          profilesData,
-        ] = await Promise.all([
-          newTokensResponse.json(),
-          profilesResponse.json(),
-        ]);
+        const data: DexResponse = await response.json();
 
         if (
-          !newTokensData ||
-          !Array.isArray(
-            newTokensData.items
-          )
+          !data ||
+          !Array.isArray(data.items)
         ) {
           throw new Error(
-            'Invalid new-token response'
-          );
-        }
-
-        if (
-          !profilesData ||
-          !Array.isArray(
-            profilesData.items
-          )
-        ) {
-          throw new Error(
-            'Invalid token-profile response'
+            'Invalid DexScreener response'
           );
         }
 
@@ -665,143 +493,12 @@ const LaunchpadTokenMarquee: React.FC = () => {
           return;
         }
 
-        /*
-         * ------------------------------------------------------
-         * STEP 2
-         * Build a profile lookup by token address.
-         * ------------------------------------------------------
-         */
-
-        const profileMap =
-          new Map<
-            string,
-            TokenProfile
-          >();
-
-        (
-          profilesData.items as TokenProfile[]
-        ).forEach(
-          (
-            profile
-          ) => {
-            if (
-              !profile ||
-              !profile.address
-            ) {
-              return;
-            }
-
-            if (
-              String(
-                profile.chain || ''
-              ).toLowerCase() !==
-              ROBINHOOD_CHAIN
-            ) {
-              return;
-            }
-
-            profileMap.set(
-              profile.address.toLowerCase(),
-              profile
-            );
-          }
-        );
-
-        /*
-         * ------------------------------------------------------
-         * STEP 3
-         * Filter newest launches to Robinhood Chain.
-         * ------------------------------------------------------
-         */
-
-        const cleanTokens =
-          (
-            newTokensData.items as NewToken[]
-          )
-            .filter(
-              (
-                token
-              ) => {
-                if (
-                  !token
-                ) {
-                  return false;
-                }
-
-                const chain =
-                  String(
-                    token.chain ||
-                      ''
-                  )
-                    .trim()
-                    .toLowerCase();
-
-                const address =
-                  token.address?.trim() ||
-                  token.token?.trim();
-
-                return (
-                  chain ===
-                    'robinhood chain' &&
-                  Boolean(address)
-                );
-              }
-            )
-            .sort(
-              (
-                a,
-                b
-              ) => {
-                const aTime =
-                  a.created_at
-                    ? new Date(
-                        a.created_at
-                      ).getTime()
-                    : 0;
-
-                const bTime =
-                  b.created_at
-                    ? new Date(
-                        b.created_at
-                      ).getTime()
-                    : 0;
-
-                return (
-                  bTime - aTime
-                );
-              }
-            )
-            .slice(0, 30)
-            .map(
-              (
-                token
-              ): LaunchpadToken => {
-                const address =
-                  (
-                    token.address ||
-                    token.token ||
-                    ''
-                  ).toLowerCase();
-
-                return {
-                  ...token,
-                  profile:
-                    profileMap.get(
-                      address
-                    ),
-                };
-              }
-            );
-
-        setTokens(
-          cleanTokens
-        );
-
+        setTokens(data.items);
         setError(false);
         setLoading(false);
       } catch (err) {
         console.error(
-          '[RobOnHood] Failed to fetch Launchpad Robinhood tokens:',
+          '[RobOnHood] Failed to fetch DexScreener Robinhood tokens:',
           err
         );
 
@@ -819,26 +516,21 @@ const LaunchpadTokenMarquee: React.FC = () => {
     /*
      * Refresh every 15 seconds.
      */
-
-    const interval =
-      window.setInterval(
-        fetchTokens,
-        15_000
-      );
+    const interval = window.setInterval(
+      fetchTokens,
+      15_000
+    );
 
     return () => {
       cancelled = true;
-      window.clearInterval(
-        interval
-      );
+      window.clearInterval(interval);
     };
   }, []);
 
   /*
-   * Duplicate the tokens so the marquee
+   * Duplicate tokens so the marquee
    * can loop continuously.
    */
-
   const marqueeTokens =
     tokens.length > 0
       ? [
@@ -893,7 +585,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
               w-full
               h-full
               rounded-full
-              bg-emerald-400
+              bg-blue-400
               opacity-75
               animate-ping
             "
@@ -906,7 +598,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
               w-2
               h-2
               rounded-full
-              bg-emerald-500
+              bg-blue-500
             "
           />
         </span>
@@ -921,7 +613,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
             whitespace-nowrap
           "
         >
-          Launchpad
+          DexScreener
         </span>
 
         <span
@@ -936,7 +628,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
             whitespace-nowrap
           "
         >
-          New Tokens
+          Robinhood
         </span>
       </div>
 
@@ -971,8 +663,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
           h-full
         "
       >
-        {loading &&
-        tokens.length === 0 ? (
+        {loading && tokens.length === 0 ? (
           <div
             className="
               h-full
@@ -986,12 +677,11 @@ const LaunchpadTokenMarquee: React.FC = () => {
               text-zinc-300
             "
           >
-            Loading new Robinhood tokens...
+            Loading Robinhood markets...
           </div>
-        ) : error &&
-          tokens.length === 0 ? (
+        ) : error && tokens.length === 0 ? (
           <a
-            href="https://launchpad.meme/?lang=en&sort=chain_robinhood"
+            href={DEXSCREENER_BASE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="
@@ -1007,7 +697,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
               hover:text-zinc-600
             "
           >
-            View Launchpad.meme Robinhood Tokens →
+            View Robinhood markets on DexScreener →
           </a>
         ) : (
           <div
@@ -1016,22 +706,18 @@ const LaunchpadTokenMarquee: React.FC = () => {
               items-center
               h-full
               w-max
-              animate-launchpad-marquee
+              animate-dex-marquee
               hover:[animation-play-state:paused]
             "
           >
             {marqueeTokens.map(
-              (
-                token,
-                index
-              ) => {
+              (token, index) => {
                 const address =
                   token.address ||
-                  token.token ||
                   `unknown-${index}`;
 
                 return (
-                  <LaunchpadTokenItem
+                  <DexTokenItem
                     key={`${address}-${index}`}
                     token={token}
                   />
@@ -1067,7 +753,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
 
       <style>
         {`
-          @keyframes launchpad-marquee {
+          @keyframes dex-marquee {
             from {
               transform: translateX(0);
             }
@@ -1077,9 +763,9 @@ const LaunchpadTokenMarquee: React.FC = () => {
             }
           }
 
-          .animate-launchpad-marquee {
+          .animate-dex-marquee {
             animation:
-              launchpad-marquee
+              dex-marquee
               55s
               linear
               infinite;
@@ -1096,8 +782,7 @@ const LaunchpadTokenMarquee: React.FC = () => {
    ============================================================ */
 
 const Header: React.FC = () => {
-  const { setViewMode } =
-    useCoreStore();
+  const { setViewMode } = useCoreStore();
 
   const [
     isInfoOpen,
@@ -1108,20 +793,15 @@ const Header: React.FC = () => {
      FULLSCREEN
      ========================================================== */
 
-  const handleFullscreen =
-    () => {
-      if (
-        !document.fullscreenElement
-      ) {
-        document.documentElement.requestFullscreen();
-      } else {
-        if (
-          document.exitFullscreen
-        ) {
-          document.exitFullscreen();
-        }
+  const handleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
       }
-    };
+    }
+  };
 
   /* ==========================================================
      RENDER
@@ -1188,9 +868,7 @@ const Header: React.FC = () => {
           >
             <button
               onClick={() =>
-                setIsInfoOpen(
-                  true
-                )
+                setIsInfoOpen(true)
               }
               className="
                 text-zinc-300
@@ -1248,10 +926,10 @@ const Header: React.FC = () => {
       </div>
 
       {/* ======================================================
-          LAUNCHPAD.MEME LIVE TOKEN FEED
+          DEXSCREENER LIVE TOKEN FEED
       ====================================================== */}
 
-      <LaunchpadTokenMarquee />
+      <DexScreenerTokenMarquee />
 
       {/* ======================================================
           RIGHT: GLOBAL CONTROLS
@@ -1269,9 +947,7 @@ const Header: React.FC = () => {
 
         <button
           onClick={() =>
-            setViewMode(
-              'design'
-            )
+            setViewMode('design')
           }
           className="
             flex
@@ -1317,6 +993,24 @@ const Header: React.FC = () => {
           </span>
         </button>
 
+        {/* DEXSCREENER */}
+
+        <a
+          href={DEXSCREENER_BASE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="
+            text-zinc-400
+            hover:text-darkDelegation
+            transition-colors
+            p-1
+            cursor-pointer
+          "
+          title="Open DexScreener Robinhood Markets"
+        >
+          <ExternalLink size={16} />
+        </a>
+
         {/* DIVIDER */}
 
         <div
@@ -1337,9 +1031,7 @@ const Header: React.FC = () => {
           "
         >
           <button
-            onClick={
-              handleFullscreen
-            }
+            onClick={handleFullscreen}
             className="
               text-zinc-400
               hover:text-darkDelegation
@@ -1349,9 +1041,7 @@ const Header: React.FC = () => {
             "
             title="Fullscreen Browser"
           >
-            <Maximize2
-              size={16}
-            />
+            <Maximize2 size={16} />
           </button>
         </div>
       </div>
@@ -1364,9 +1054,7 @@ const Header: React.FC = () => {
         <InfoModal
           key="info-modal"
           onClose={() =>
-            setIsInfoOpen(
-              false
-            )
+            setIsInfoOpen(false)
           }
         />
       )}
