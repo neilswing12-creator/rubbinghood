@@ -30,15 +30,6 @@ export interface ThinkOptions {
  * AgentBrain automatically detects EVM contract addresses
  * inside user prompts and retrieves live Robinhood Chain
  * market data through our own VPS API.
- *
- * Browser:
- *   /api/dex/token/{contract}
- *
- * Nginx:
- *   /api/dex/ -> 127.0.0.1:8085
- *
- * VPS service:
- *   DexScreener API
  */
 
 const ROBINHOOD_CHAIN = 'ROBINHOOD';
