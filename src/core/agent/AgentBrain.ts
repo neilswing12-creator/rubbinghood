@@ -65,7 +65,7 @@ function extractContractAddress(
   }
 
   const match = text.match(
-    /0x[a-fA-F0-9]{40}/
+    /0x[a-fA-F0-9]{40,64}/
   );
 
   return match?.[0] || null;
@@ -107,7 +107,7 @@ async function fetchDexScreenerToken(
     address.trim();
 
   if (
-    !/^0x[a-fA-F0-9]{40}$/.test(
+    !/^0x[a-fA-F0-9]{40,64}$/.test(
       normalizedAddress
     )
   ) {
