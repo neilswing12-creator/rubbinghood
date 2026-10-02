@@ -406,40 +406,132 @@ ${JSON.stringify(
 TOKEN ANALYSIS RULES
 ============================================================
 
-1. The token being analyzed is identified by the contract
-   address above.
+STRICT SOURCE-OF-TRUTH POLICY
 
-2. The token data was retrieved automatically from
-   DexScreener through the RobOnHood VPS API.
+The market data in this context was retrieved from DexScreener
+through the RobOnHood VPS API. Use ONLY the fields actually
+present in this retrieved data as factual market information.
 
-3. Treat retrieved market information as factual source data.
+SUPPORTED FACTUAL METRICS FROM THIS DATA:
 
-4. Do NOT invent, estimate, or hallucinate token statistics.
+- Token name
+- Token symbol
+- Contract address
+- Price USD
+- Native-token price
+- Market cap
+- FDV
+- Liquidity USD
+- Liquidity base amount
+- Liquidity quote amount
+- 5m / 1h / 6h / 24h volume
+- 5m / 1h / 6h / 24h price change
+- 5m / 1h / 6h / 24h transaction buy/sell counts
+- Pair address
+- DEX
+- Pair labels
+- Pair URL
+- Pair creation timestamp
+- Quote-token information
+- The returned list of Robinhood pairs
 
-5. Do not fabricate price, market cap, FDV, liquidity,
-   volume, transactions, buys, sells, price changes,
-   pair information, or other live statistics.
+UNSUPPORTED METRICS:
 
-6. If a requested metric is not present in the retrieved
-   data, clearly state that it is unavailable.
+The current DexScreener token response does NOT provide reliable
+data for the following. NEVER claim these as facts unless another
+explicitly supplied source in the conversation provides them:
 
-7. Do not confuse this token with another token that has
-   a similar name or symbol.
+- Holder count
+- Holder distribution
+- Top-holder percentage
+- Wallet concentration
+- Developer holdings
+- Insider holdings
+- Developer/insider transfers
+- Wallet transaction history
+- Liquidity-lock status
+- Liquidity-lock provider
+- Liquidity unlock date
+- Contract ownership status
+- Contract renouncement status
+- Contract permissions/security status
+- Honeypot status
+- Buy tax
+- Sell tax
+- Transfer tax
+- Slippage for a specific trade size
+- Exact price impact for a specific trade
+- Audit status
+- Scam/rug-pull classification
+- Social/community sentiment
+- Team identity or reputation
 
-8. The contract address is more important than the token
-   name or symbol when identifying the token.
+ABSOLUTE RULES:
 
-9. When analyzing the token, clearly distinguish:
-   - retrieved facts
-   - calculations based on retrieved facts
-   - analytical interpretation
+1. Never invent, estimate, or hallucinate a missing metric.
 
-10. Do not present analytical interpretation as if it were
-    retrieved market data.
+2. Never present a metric as retrieved data if it is not present
+   in the supplied DexScreener context.
 
-11. The retrieved data represents a snapshot taken when
-    this request was made. Market data can change after
-    retrieval.
+3. If the user asks for an unsupported metric, explicitly say:
+   "That metric is not available in the current DexScreener data."
+
+4. Do not silently substitute an estimate for unavailable data.
+
+5. Do not use token names, symbols, or general crypto assumptions
+   to infer holder behavior, developer activity, liquidity locks,
+   security status, taxes, or wallet concentration.
+
+6. Liquidity must use the actual Liquidity USD value supplied by
+   DexScreener. Do not replace it with another number or estimate.
+
+7. Volume must use the actual supplied volume fields.
+
+8. Transaction counts must use the actual supplied buy/sell counts.
+
+9. Price momentum may be interpreted from the supplied price-change
+   fields, but clearly label interpretation as ANALYSIS rather than
+   retrieved fact.
+
+10. If making a calculation, show that it is a calculation based
+    on retrieved values. Do not describe calculated values as
+    directly retrieved values.
+
+11. Do not call a token bullish, bearish, safe, unsafe, scam, rug,
+    or low-risk/high-risk as an objective fact. If discussing risk,
+    identify the observable data that may contribute to risk and
+    clearly label the conclusion as analytical interpretation.
+
+12. Do not claim that low liquidity automatically means a specific
+    percentage of slippage. Slippage requires trade-size and pool
+    mechanics that are not supplied here.
+
+13. Do not claim wallet concentration, insider activity, or
+    developer activity from transaction counts alone.
+
+14. Do not claim a liquidity lock exists or does not exist merely
+    because liquidity is present.
+
+15. When reporting current market data, remind the user that it is
+    a snapshot retrieved at request time and can change.
+
+16. The contract address is the primary token identifier. Never
+    substitute another token because a name or symbol is similar.
+
+RESPONSE STRUCTURE:
+
+When the user asks for a token analysis, prefer this structure:
+
+- Token identification
+- Current market data
+- Trading activity
+- Price movement
+- Liquidity
+- Pair/DEX information
+- Data-backed observations
+- Limitations / unavailable metrics
+
+Keep factual data separate from interpretation.
 
 ============================================================
 END ROBINHOOD TOKEN DATA
@@ -625,7 +717,8 @@ export class AgentBrain {
             `${prompt}\n` +
             buildTokenContext(
               tokenData
-            );
+            ) +
+            `\n\nIMPORTANT: Use the DexScreener context above as the sole source of live token facts. Do not introduce holder, wallet, insider, developer, liquidity-lock, tax, slippage, audit, honeypot, or contract-security claims unless those facts are explicitly present in the supplied context.`;
         } catch (error) {
           console.error(
             '[AgentBrain] DexScreener lookup failed:',
