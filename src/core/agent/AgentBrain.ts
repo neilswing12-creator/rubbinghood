@@ -685,6 +685,12 @@ export class AgentBrain {
       let enrichedPrompt =
         prompt;
 
+      // Live DexScreener context is kept separately so it can be
+      // injected into BOTH the user context and the SYSTEM prompt.
+      // This prevents the model from replacing live values with
+      // remembered or fabricated market data.
+      let liveDexScreenerSystemContext = '';
+
       const contractAddress =
         extractContractAddress(
           prompt
@@ -710,14 +716,24 @@ export class AgentBrain {
           );
 
           /*
-           * Add the live token information to the prompt
-           * before Gemini sees the request.
+           * Build ONE canonical live-data context.
+           *
+           * The exact same context is sent to Gemini twice:
+           *   1. In the user context for compatibility with the
+           *      existing workflow.
+           *   2. In the SYSTEM instruction as authoritative data.
+           *
+           * This prevents the model from replacing live values
+           * with remembered, guessed, or fabricated statistics.
            */
-          enrichedPrompt =
-            `${prompt}\n` +
+          liveDexScreenerSystemContext =
             buildTokenContext(
               tokenData
-            ) +
+            );
+
+          enrichedPrompt =
+            `${prompt}\n` +
+            liveDexScreenerSystemContext +
             `\n\nIMPORTANT: Use the DexScreener context above as the sole source of live token facts. Do not introduce holder, wallet, insider, developer, liquidity-lock, tax, slippage, audit, honeypot, or contract-security claims unless those facts are explicitly present in the supplied context.`;
         } catch (error) {
           console.error(
@@ -729,12 +745,15 @@ export class AgentBrain {
            * Tell Gemini the lookup failed instead of allowing
            * it to invent token information.
            */
-          enrichedPrompt =
-            `${prompt}\n` +
+          liveDexScreenerSystemContext =
             buildTokenFailureContext(
               contractAddress,
               error
             );
+
+          enrichedPrompt =
+            `${prompt}\n` +
+            liveDexScreenerSystemContext;
         }
       }
 
@@ -872,13 +891,95 @@ export class AgentBrain {
         this.host.simulation
           .getAllAgents();
 
-      const systemPrompt =
+      let systemPrompt =
         PromptBuilder.buildSystemPrompt(
           this.host.data,
           core.phase,
           core.userBrief,
           allAgents
         );
+
+      /*
+       * ========================================================
+       * LIVE DEXSCREENER SYSTEM CONTEXT
+       * ========================================================
+       *
+       * PromptBuilder contains the permanent RobOnHood data policy.
+       * AgentBrain supplies the actual live snapshot for this
+       * request here, at SYSTEM level.
+       *
+       * This is intentionally separate from the user message.
+       * The model must treat this snapshot as the authoritative
+       * source for current token market facts.
+       */
+      if (liveDexScreenerSystemContext) {
+        systemPrompt += `
+
+============================================================
+ROB ON HOOD — AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
+============================================================
+
+The following data was retrieved by the RobOnHood backend for
+THIS REQUEST.
+
+Treat this snapshot as the sole authoritative source for current
+market facts.
+
+NEVER replace these values with:
+- model memory
+- previous token analyses
+- values from another token
+- general crypto knowledge
+- assumptions
+- estimates
+- plausible-looking numbers
+
+Every current market number in the answer MUST come from the
+snapshot below or be a clearly identified calculation derived
+from it.
+
+If a requested metric is not present, say:
+"Not available from the current DexScreener data."
+
+Do NOT invent:
+- holder counts
+- holder concentration
+- developer activity
+- insider activity
+- liquidity locks
+- slippage
+- price impact
+- taxes
+- honeypot status
+- audits
+- contract security
+- ownership/renouncement
+- rug-pull probability
+- scam classification
+- 7-day price change
+
+IMPORTANT ADDRESS RULE:
+
+If the snapshot says inputType = "pair", the input address is a
+DEX PAIR ADDRESS, NOT the token contract.
+
+Use the explicit TOKEN address for the token contract and the
+explicit PAIR address for the trading pair.
+
+LIVE SNAPSHOT:
+${liveDexScreenerSystemContext}
+
+============================================================
+END AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
+============================================================
+`;
+      }
+
+      if (liveDexScreenerSystemContext) {
+        console.log(
+          '[AgentBrain] Live DexScreener context injected into SYSTEM prompt.'
+        );
+      }
 
       // ========================================================
       // 5. GET TOOL DEFINITIONS
