@@ -202,341 +202,374 @@ function buildTokenContext(
     data: any;
   }
 ): string {
-  const data =
-    tokenData.data || {};
+  const data = tokenData.data || {};
 
-  const token =
-    data.token || {};
+  const token = data.token || {};
+  const pair = data.pair || {};
+  const price = data.price || {};
+  const market = data.market || {};
+  const volume = data.volume || {};
+  const priceChange = data.priceChange || {};
+  const transactions = data.transactions || {};
 
-  const pair =
-    data.pair || {};
+  const inputAddress =
+    data.inputAddress ||
+    tokenData.address;
 
-  const price =
-    data.price || {};
+  const inputType =
+    data.inputType ||
+    'token';
 
-  const market =
-    data.market || {};
+  const tokenContract =
+    token.address ||
+    (inputType === 'token'
+      ? inputAddress
+      : null);
 
-  const volume =
-    data.volume || {};
+  const pairAddress =
+    pair.address ||
+    (inputType === 'pair'
+      ? inputAddress
+      : null);
 
-  const priceChange =
-    data.priceChange || {};
+  const dex =
+    pair.dex || 'Unavailable';
 
-  const transactions =
-    data.transactions || {};
+  const quoteToken =
+    data.quoteToken || {};
 
   return `
 
 ============================================================
-ROBINHOOD CHAIN TOKEN DATA
+ROB ON HOOD — VERIFIED DEXSCREENER SNAPSHOT
 ============================================================
 
 SOURCE:
 ${tokenData.source}
 
-SOURCE URL:
-${tokenData.url}
-
 CHAIN:
 ${tokenData.chain}
 
-CONTRACT ADDRESS:
-${tokenData.address}
+INPUT ADDRESS:
+${inputAddress}
 
-The contract address is the primary identifier of the token.
+INPUT TYPE:
+${inputType}
+
+IMPORTANT:
+If INPUT TYPE is "pair", the INPUT ADDRESS is the DEX PAIR
+ADDRESS. It is NOT the token contract address.
 
 ------------------------------------------------------------
-TOKEN
+TOKEN IDENTITY
 ------------------------------------------------------------
 
-Name:
+Token Name:
 ${token.name ?? 'Unavailable'}
 
-Symbol:
+Token Symbol:
 ${token.symbol ?? 'Unavailable'}
 
-Address:
-${token.address ?? tokenData.address}
+TOKEN CONTRACT ADDRESS:
+${tokenContract ?? 'Not available from the current DexScreener data.'}
 
-------------------------------------------------------------
-PRICE
-------------------------------------------------------------
-
-Price USD:
-${price.usd ?? 'Unavailable'}
-
-Price in native currency:
-${price.native ?? 'Unavailable'}
-
-------------------------------------------------------------
-MARKET
-------------------------------------------------------------
-
-Market Cap USD:
-${market.marketCapUsd ?? 'Unavailable'}
-
-FDV USD:
-${market.fdvUsd ?? 'Unavailable'}
-
-Liquidity USD:
-${market.liquidityUsd ?? 'Unavailable'}
-
-Liquidity Base:
-${market.liquidityBase ?? 'Unavailable'}
-
-Liquidity Quote:
-${market.liquidityQuote ?? 'Unavailable'}
-
-------------------------------------------------------------
-VOLUME
-------------------------------------------------------------
-
-5 minute:
-${volume.m5 ?? 'Unavailable'}
-
-1 hour:
-${volume.h1 ?? 'Unavailable'}
-
-6 hours:
-${volume.h6 ?? 'Unavailable'}
-
-24 hours:
-${volume.h24 ?? 'Unavailable'}
-
-------------------------------------------------------------
-PRICE CHANGE
-------------------------------------------------------------
-
-5 minute:
-${priceChange.m5 ?? 'Unavailable'}%
-
-1 hour:
-${priceChange.h1 ?? 'Unavailable'}%
-
-6 hours:
-${priceChange.h6 ?? 'Unavailable'}%
-
-24 hours:
-${priceChange.h24 ?? 'Unavailable'}%
-
-------------------------------------------------------------
-TRANSACTIONS
-------------------------------------------------------------
-
-5 minute:
-${JSON.stringify(
-  transactions.m5 ?? {},
-  null,
-  2
-)}
-
-1 hour:
-${JSON.stringify(
-  transactions.h1 ?? {},
-  null,
-  2
-)}
-
-6 hours:
-${JSON.stringify(
-  transactions.h6 ?? {},
-  null,
-  2
-)}
-
-24 hours:
-${JSON.stringify(
-  transactions.h24 ?? {},
-  null,
-  2
-)}
-
-------------------------------------------------------------
-PAIR
-------------------------------------------------------------
-
-Pair Address:
-${pair.address ?? 'Unavailable'}
+PAIR ADDRESS:
+${pairAddress ?? 'Not available from the current DexScreener data.'}
 
 DEX:
-${pair.dex ?? 'Unavailable'}
+${dex}
 
-Labels:
-${JSON.stringify(
-  pair.labels ?? [],
-  null,
-  2
-)}
+Pair Labels:
+${JSON.stringify(pair.labels ?? [], null, 2)}
 
 Pair URL:
-${pair.url ?? 'Unavailable'}
+${pair.url ?? tokenData.url ?? 'Unavailable'}
 
 Pair Created At:
 ${data.pairCreatedAt ?? 'Unavailable'}
 
 Quote Token:
-${JSON.stringify(
-  data.quoteToken ?? {},
-  null,
-  2
-)}
+${JSON.stringify(quoteToken, null, 2)}
+
+------------------------------------------------------------
+VERIFIED CURRENT MARKET DATA
+------------------------------------------------------------
+
+Price USD:
+${price.usd ?? 'Not available from the current DexScreener data.'}
+
+Native Price:
+${price.native ?? 'Not available from the current DexScreener data.'}
+
+Market Cap USD:
+${market.marketCapUsd ?? 'Not available from the current DexScreener data.'}
+
+FDV USD:
+${market.fdvUsd ?? 'Not available from the current DexScreener data.'}
+
+Liquidity USD:
+${market.liquidityUsd ?? 'Not available from the current DexScreener data.'}
+
+Liquidity Base:
+${market.liquidityBase ?? 'Not available from the current DexScreener data.'}
+
+Liquidity Quote:
+${market.liquidityQuote ?? 'Not available from the current DexScreener data.'}
+
+------------------------------------------------------------
+VERIFIED VOLUME
+------------------------------------------------------------
+
+5m:
+${volume.m5 ?? 'Not available from the current DexScreener data.'}
+
+1h:
+${volume.h1 ?? 'Not available from the current DexScreener data.'}
+
+6h:
+${volume.h6 ?? 'Not available from the current DexScreener data.'}
+
+24h:
+${volume.h24 ?? 'Not available from the current DexScreener data.'}
+
+------------------------------------------------------------
+VERIFIED PRICE CHANGE
+------------------------------------------------------------
+
+5m:
+${priceChange.m5 ?? 'Not available from the current DexScreener data.'}%
+
+1h:
+${priceChange.h1 ?? 'Not available from the current DexScreener data.'}%
+
+6h:
+${priceChange.h6 ?? 'Not available from the current DexScreener data.'}%
+
+24h:
+${priceChange.h24 ?? 'Not available from the current DexScreener data.'}%
+
+------------------------------------------------------------
+VERIFIED TRANSACTIONS
+------------------------------------------------------------
+
+5m:
+${JSON.stringify(transactions.m5 ?? {}, null, 2)}
+
+1h:
+${JSON.stringify(transactions.h1 ?? {}, null, 2)}
+
+6h:
+${JSON.stringify(transactions.h6 ?? {}, null, 2)}
+
+24h:
+${JSON.stringify(transactions.h24 ?? {}, null, 2)}
 
 ------------------------------------------------------------
 ALL ROBINHOOD PAIRS
 ------------------------------------------------------------
 
-${JSON.stringify(
-  data.allRobinhoodPairs ?? [],
-  null,
-  2
-)}
+${JSON.stringify(data.allRobinhoodPairs ?? [], null, 2)}
 
 ============================================================
-RAW DEXSCREENER DATA
+RAW DEXSCREENER RESPONSE
 ============================================================
 
-${JSON.stringify(
-  data,
-  null,
-  2
-)}
+${JSON.stringify(data, null, 2)}
 
 ============================================================
-TOKEN ANALYSIS RULES
+STRICT ANALYSIS RULES
 ============================================================
 
-STRICT SOURCE-OF-TRUTH POLICY
+The values above are retrieved live from DexScreener through the
+RobOnHood VPS API.
 
-The market data in this context was retrieved from DexScreener
-through the RobOnHood VPS API. Use ONLY the fields actually
-present in this retrieved data as factual market information.
+These retrieved values are authoritative.
 
-SUPPORTED FACTUAL METRICS FROM THIS DATA:
+NEVER change, estimate, round into a different value, or replace
+a retrieved market value with a value from memory or another token.
 
-- Token name
-- Token symbol
-- Contract address
-- Price USD
-- Native-token price
-- Market cap
+In particular, NEVER invent:
+- price
+- market cap
 - FDV
-- Liquidity USD
-- Liquidity base amount
-- Liquidity quote amount
-- 5m / 1h / 6h / 24h volume
-- 5m / 1h / 6h / 24h price change
-- 5m / 1h / 6h / 24h transaction buy/sell counts
-- Pair address
-- DEX
-- Pair labels
-- Pair URL
-- Pair creation timestamp
-- Quote-token information
-- The returned list of Robinhood pairs
+- liquidity
+- volume
+- buys
+- sells
+- transaction counts
+- price changes
 
-UNSUPPORTED METRICS:
+The following are NOT supplied by this market-data endpoint unless
+explicitly present above:
 
-The current DexScreener token response does NOT provide reliable
-data for the following. NEVER claim these as facts unless another
-explicitly supplied source in the conversation provides them:
+- holder count
+- holder distribution
+- top-holder percentage
+- wallet concentration
+- developer holdings
+- insider holdings
+- developer/insider transfers
+- wallet transaction history
+- liquidity-lock status
+- liquidity-lock provider
+- liquidity unlock date
+- contract ownership/renouncement
+- contract permissions
+- honeypot status
+- buy tax
+- sell tax
+- transfer tax
+- exact slippage
+- exact price impact for a trade
+- audit status
+- scam classification
+- rug-pull probability
 
-- Holder count
-- Holder distribution
-- Top-holder percentage
-- Wallet concentration
-- Developer holdings
-- Insider holdings
-- Developer/insider transfers
-- Wallet transaction history
-- Liquidity-lock status
-- Liquidity-lock provider
-- Liquidity unlock date
-- Contract ownership status
-- Contract renouncement status
-- Contract permissions/security status
-- Honeypot status
-- Buy tax
-- Sell tax
-- Transfer tax
-- Slippage for a specific trade size
-- Exact price impact for a specific trade
-- Audit status
-- Scam/rug-pull classification
-- Social/community sentiment
-- Team identity or reputation
+NEVER invent any of those metrics.
 
-ABSOLUTE RULES:
+If asked for one, say:
+"That metric is not available from the current DexScreener data."
 
-1. Never invent, estimate, or hallucinate a missing metric.
+PAIR VS TOKEN RULE:
 
-2. Never present a metric as retrieved data if it is not present
-   in the supplied DexScreener context.
+INPUT TYPE = pair means the input address is the pair address.
 
-3. If the user asks for an unsupported metric, explicitly say:
-   "That metric is not available in the current DexScreener data."
+TOKEN CONTRACT ADDRESS must come from token.address.
 
-4. Do not silently substitute an estimate for unavailable data.
+PAIR ADDRESS must come from pair.address.
 
-5. Do not use token names, symbols, or general crypto assumptions
-   to infer holder behavior, developer activity, liquidity locks,
-   security status, taxes, or wallet concentration.
+Never label a pair address as the token contract.
 
-6. Liquidity must use the actual Liquidity USD value supplied by
-   DexScreener. Do not replace it with another number or estimate.
+ANALYSIS RULE:
 
-7. Volume must use the actual supplied volume fields.
+Gemini should interpret the verified data but should NOT create
+new numerical market facts.
 
-8. Transaction counts must use the actual supplied buy/sell counts.
-
-9. Price momentum may be interpreted from the supplied price-change
-   fields, but clearly label interpretation as ANALYSIS rather than
-   retrieved fact.
-
-10. If making a calculation, show that it is a calculation based
-    on retrieved values. Do not describe calculated values as
-    directly retrieved values.
-
-11. Do not call a token bullish, bearish, safe, unsafe, scam, rug,
-    or low-risk/high-risk as an objective fact. If discussing risk,
-    identify the observable data that may contribute to risk and
-    clearly label the conclusion as analytical interpretation.
-
-12. Do not claim that low liquidity automatically means a specific
-    percentage of slippage. Slippage requires trade-size and pool
-    mechanics that are not supplied here.
-
-13. Do not claim wallet concentration, insider activity, or
-    developer activity from transaction counts alone.
-
-14. Do not claim a liquidity lock exists or does not exist merely
-    because liquidity is present.
-
-15. When reporting current market data, remind the user that it is
-    a snapshot retrieved at request time and can change.
-
-16. The contract address is the primary token identifier. Never
-    substitute another token because a name or symbol is similar.
-
-RESPONSE STRUCTURE:
-
-When the user asks for a token analysis, prefer this structure:
-
-- Token identification
-- Current market data
-- Trading activity
-- Price movement
-- Liquidity
-- Pair/DEX information
-- Data-backed observations
-- Limitations / unavailable metrics
-
-Keep factual data separate from interpretation.
+If a current numerical market value is needed in the final answer,
+use the exact VERIFIED CURRENT MARKET DATA above.
 
 ============================================================
-END ROBINHOOD TOKEN DATA
+END VERIFIED DEXSCREENER SNAPSHOT
 ============================================================
 `;
+}
+
+
+/**
+ * Build a deterministic market-data block from the API response.
+ *
+ * Gemini is used for interpretation. These exact values are
+ * generated by AgentBrain so the model cannot silently change
+ * live numbers such as FDV, liquidity, or volume.
+ */
+function buildVerifiedMarketBlock(tokenData: {
+  address: string;
+  chain: string;
+  source: string;
+  url: string;
+  data: any;
+}): string {
+  const data = tokenData.data || {};
+  const token = data.token || {};
+  const pair = data.pair || {};
+  const price = data.price || {};
+  const market = data.market || {};
+  const volume = data.volume || {};
+  const priceChange = data.priceChange || {};
+  const transactions = data.transactions || {};
+
+  const inputAddress =
+    data.inputAddress || tokenData.address;
+
+  const inputType =
+    data.inputType || 'token';
+
+  const tokenContract =
+    token.address ||
+    (inputType === 'token' ? inputAddress : null);
+
+  const pairAddress =
+    pair.address ||
+    (inputType === 'pair' ? inputAddress : null);
+
+  const unavailable =
+    'Not available from the current DexScreener data.';
+
+  const format = (value: any) =>
+    value === null ||
+    value === undefined ||
+    value === ''
+      ? unavailable
+      : String(value);
+
+  const total24h =
+    Number(transactions.h24?.buys || 0) +
+    Number(transactions.h24?.sells || 0);
+
+  return `VERIFIED LIVE DEXSCREENER DATA
+
+Token: ${format(token.name)}
+Symbol: ${format(token.symbol)}
+Token Contract: ${format(tokenContract)}
+Pair Address: ${format(pairAddress)}
+DEX: ${format(pair.dex)}
+Quote Token: ${format(data.quoteToken?.symbol)}
+
+Price: ${format(price.usd)} USD
+Market Cap: ${format(market.marketCapUsd)} USD
+FDV: ${format(market.fdvUsd)} USD
+Liquidity: ${format(market.liquidityUsd)} USD
+
+24h Volume: ${format(volume.h24)} USD
+24h Price Change: ${format(priceChange.h24)}%
+24h Buys: ${format(transactions.h24?.buys)}
+24h Sells: ${format(transactions.h24?.sells)}
+24h Transactions: ${total24h}
+
+5m Volume: ${format(volume.m5)} USD
+1h Volume: ${format(volume.h1)} USD
+6h Volume: ${format(volume.h6)} USD
+
+5m Change: ${format(priceChange.m5)}%
+1h Change: ${format(priceChange.h1)}%
+6h Change: ${format(priceChange.h6)}%
+
+DATA SOURCE: DexScreener
+CHAIN: ${format(data.chain || tokenData.chain)}
+INPUT TYPE: ${format(inputType)}
+
+This section is generated directly from the retrieved API response.
+It is not generated by Gemini.`;
+}
+
+/**
+ * Prevent the model from presenting unsupported numerical
+ * market claims as if they were verified data.
+ *
+ * The exact market figures are already supplied by
+ * buildVerifiedMarketBlock().
+ *
+ * We leave the model's prose intact while removing common
+ * standalone market-number patterns from its analysis.
+ */
+function sanitizeModelAnalysis(text: string): string {
+  if (!text) return text;
+
+  let result = text;
+
+  // Remove common unsupported market-value formats if Gemini
+  // nevertheless attempts to generate them in its prose.
+  result = result.replace(
+    /(?:USD\s*)?\$[\d,]+(?:\.\d+)?(?:\s*(?:M|K|B))?/gi,
+    '[verified value shown above]'
+  );
+
+  result = result.replace(
+    /\b\d+(?:\.\d+)?%\b/g,
+    '[verified percentage shown above]'
+  );
+
+  return result.trim();
 }
 
 /**
@@ -691,6 +724,17 @@ export class AgentBrain {
       // remembered or fabricated market data.
       let liveDexScreenerSystemContext = '';
 
+      // Keep the exact API object used for this request so the
+      // final verified-data block uses the SAME snapshot that
+      // Gemini analyzed. Do not perform a second market lookup.
+      let liveDexScreenerTokenData: {
+        address: string;
+        chain: string;
+        source: string;
+        url: string;
+        data: any;
+      } | null = null;
+
       const contractAddress =
         extractContractAddress(
           prompt
@@ -726,6 +770,9 @@ export class AgentBrain {
            * This prevents the model from replacing live values
            * with remembered, guessed, or fabricated statistics.
            */
+          liveDexScreenerTokenData =
+            tokenData;
+
           liveDexScreenerSystemContext =
             buildTokenContext(
               tokenData
@@ -934,11 +981,21 @@ NEVER replace these values with:
 - estimates
 - plausible-looking numbers
 
-Every current market number in the answer MUST come from the
-snapshot below or be a clearly identified calculation derived
-from it.
+IMPORTANT OUTPUT RULE:
 
-If a requested metric is not present, say:
+Do NOT generate your own current market numbers.
+
+The application will append a deterministic VERIFIED LIVE
+DEXSCREENER DATA section generated directly from the API response.
+
+Your job is to provide ANALYSIS and INTERPRETATION of that data.
+
+If you mention a current numerical value, it MUST exactly match
+the supplied snapshot.
+
+Do not invent, estimate, round, or substitute any current value.
+
+If a metric is unavailable, say:
 "Not available from the current DexScreener data."
 
 Do NOT invent:
@@ -1119,6 +1176,55 @@ END AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
       let finalContent =
         text;
 
+      /*
+       * ========================================================
+       * VERIFIED MARKET DATA OUTPUT
+       * ========================================================
+       *
+       * Gemini is allowed to interpret the data, but AgentBrain
+       * owns the exact live numbers.
+       *
+       * This prevents the final deliverable from displaying
+       * fabricated FDV/liquidity/volume/price values.
+       */
+      if (
+        liveDexScreenerSystemContext &&
+        !liveDexScreenerSystemContext.includes(
+          'END TOKEN RETRIEVAL NOTICE'
+        ) &&
+        contractAddress
+      ) {
+        try {
+          const verifiedBlock =
+            liveDexScreenerTokenData
+              ? buildVerifiedMarketBlock(
+                  liveDexScreenerTokenData
+                )
+              : '';
+
+          const analysis =
+            sanitizeModelAnalysis(
+              finalContent
+            );
+
+          finalContent =
+            `${verifiedBlock}
+
+${analysis}`;
+        } catch (verificationError) {
+          console.error(
+            '[AgentBrain] Failed to build verified DexScreener output:',
+            verificationError
+          );
+
+          /*
+           * Keep the model output if formatting the verified
+           * block fails. The original live snapshot remains
+           * available in the system/user context.
+           */
+        }
+      }
+
       const isMalformed =
         response.finishReason ===
         'MALFORMED_FUNCTION_CALL';
@@ -1237,7 +1343,7 @@ END AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
       // ========================================================
 
       return {
-        text,
+        text: finalContent,
         toolCalls,
       };
     } catch (error) {
