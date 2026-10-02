@@ -713,7 +713,7 @@ export class AgentBrain {
       // injected into BOTH the user context and the SYSTEM prompt.
       // This prevents the model from replacing live values with
       // remembered or fabricated market data.
-      let liveDexScreenerSystemContext = '';
+      let liveDexScreenerContext = '';
 
       // Keep the exact API object used for this request so the
       // final verified-data block uses the SAME snapshot that
@@ -764,15 +764,83 @@ export class AgentBrain {
           liveDexScreenerTokenData =
             tokenData;
 
-          liveDexScreenerSystemContext =
+          liveDexScreenerContext =
             buildTokenContext(
               tokenData
             );
 
+          /*
+           * IMPORTANT:
+           *
+           * gemini-web2api-go translates OpenAI-style messages into
+           * Gemini web prompts. Its "system" role must NOT be treated
+           * as a security boundary for live market data.
+           *
+           * Therefore the application gives Gemini the verified
+           * DexScreener snapshot directly in the user/enriched prompt.
+           *
+           * Gemini's job is ONLY to interpret this supplied snapshot.
+           * AgentBrain remains the source of truth for the exact values.
+           */
           enrichedPrompt =
-            `${prompt}\n` +
-            liveDexScreenerSystemContext +
-            `\n\nIMPORTANT: Use the DexScreener context above as the sole source of live token facts. Do not introduce holder, wallet, insider, developer, liquidity-lock, tax, slippage, audit, honeypot, or contract-security claims unless those facts are explicitly present in the supplied context.`;
+            `${prompt}
+
+============================================================
+ROB ON HOOD — APPLICATION-VERIFIED DEXSCREENER DATA
+============================================================
+
+The following snapshot was retrieved by the RobOnHood application
+from its DexScreener backend for THIS REQUEST.
+
+This is source data supplied by the application.
+Do NOT browse for another value.
+Do NOT use memory.
+Do NOT substitute values from another token.
+Do NOT estimate or invent missing values.
+
+YOUR ROLE:
+You are an ANALYST interpreting the supplied DexScreener data.
+
+You are NOT the market-data provider.
+
+Do not create, modify, round, estimate, or replace current market
+numbers.
+
+Prefer qualitative interpretation such as:
+- what the supplied liquidity means
+- what the supplied volume means
+- what the supplied buy/sell activity suggests
+- what the supplied price movement suggests
+- notable relationships between the supplied metrics
+- limitations of the available data
+
+Do NOT invent or claim data that is not present in the snapshot,
+including holders, wallet concentration, insider/developer activity,
+liquidity locks, taxes, slippage, audits, honeypot status, contract
+security, ownership/renouncement, scam classification, or rug-pull
+probability.
+
+If the user asks for an exact current market number, use ONLY the
+number supplied in this snapshot.
+
+If a requested metric is absent, say:
+"That metric is not available from the current DexScreener data."
+
+The application will place a deterministic VERIFIED LIVE DATA
+section before your analysis. Your response should therefore focus
+on interpretation rather than recreating the market-data table.
+
+-------------------- VERIFIED SNAPSHOT --------------------
+
+${liveDexScreenerContext}
+
+------------------ END VERIFIED SNAPSHOT ------------------
+
+Now answer the user's original request using ONLY the supplied
+snapshot for current token facts.
+============================================================
+END APPLICATION-VERIFIED DEXSCREENER DATA
+============================================================`;
         } catch (error) {
           console.error(
             '[AgentBrain] DexScreener lookup failed:',
@@ -783,7 +851,7 @@ export class AgentBrain {
            * Tell Gemini the lookup failed instead of allowing
            * it to invent token information.
            */
-          liveDexScreenerSystemContext =
+          liveDexScreenerContext =
             buildTokenFailureContext(
               contractAddress,
               error
@@ -791,7 +859,7 @@ export class AgentBrain {
 
           enrichedPrompt =
             `${prompt}\n` +
-            liveDexScreenerSystemContext;
+            liveDexScreenerContext;
         }
       }
 
@@ -938,94 +1006,19 @@ export class AgentBrain {
         );
 
       /*
-       * ========================================================
-       * LIVE DEXSCREENER SYSTEM CONTEXT
-       * ========================================================
+       * IMPORTANT:
        *
-       * PromptBuilder contains the permanent RobOnHood data policy.
-       * AgentBrain supplies the actual live snapshot for this
-       * request here, at SYSTEM level.
+       * Do NOT inject live DexScreener data into the system message.
+       * The Gemini Web2API does not provide reliable privileged
+       * system-message semantics for this use case.
        *
-       * This is intentionally separate from the user message.
-       * The model must treat this snapshot as the authoritative
-       * source for current token market facts.
+       * The verified snapshot is already embedded in enrichedPrompt.
+       * PromptBuilder remains responsible for general application
+       * behavior; AgentBrain owns the live market-data snapshot.
        */
-      if (liveDexScreenerSystemContext) {
-        systemPrompt += `
-
-============================================================
-ROB ON HOOD — AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
-============================================================
-
-The following data was retrieved by the RobOnHood backend for
-THIS REQUEST.
-
-Treat this snapshot as the sole authoritative source for current
-market facts.
-
-NEVER replace these values with:
-- model memory
-- previous token analyses
-- values from another token
-- general crypto knowledge
-- assumptions
-- estimates
-- plausible-looking numbers
-
-IMPORTANT OUTPUT RULE:
-
-Do NOT generate your own current market numbers.
-
-The application will append a deterministic VERIFIED LIVE
-DEXSCREENER DATA section generated directly from the API response.
-
-Your job is to provide ANALYSIS and INTERPRETATION of that data.
-
-If you mention a current numerical value, it MUST exactly match
-the supplied snapshot.
-
-Do not invent, estimate, round, or substitute any current value.
-
-If a metric is unavailable, say:
-"Not available from the current DexScreener data."
-
-Do NOT invent:
-- holder counts
-- holder concentration
-- developer activity
-- insider activity
-- liquidity locks
-- slippage
-- price impact
-- taxes
-- honeypot status
-- audits
-- contract security
-- ownership/renouncement
-- rug-pull probability
-- scam classification
-- 7-day price change
-
-IMPORTANT ADDRESS RULE:
-
-If the snapshot says inputType = "pair", the input address is a
-DEX PAIR ADDRESS, NOT the token contract.
-
-Use the explicit TOKEN address for the token contract and the
-explicit PAIR address for the trading pair.
-
-LIVE SNAPSHOT:
-${liveDexScreenerSystemContext}
-
-============================================================
-END AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
-============================================================
-`;
-      }
-
-      if (liveDexScreenerSystemContext) {
+      if (liveDexScreenerContext) {
         console.log(
-          '[AgentBrain] Live DexScreener context injected into SYSTEM prompt.'
+          '[AgentBrain] Verified DexScreener context supplied directly to Gemini for interpretation.'
         );
       }
 
@@ -1179,8 +1172,8 @@ END AUTHORITATIVE LIVE DEXSCREENER SNAPSHOT
        * fabricated FDV/liquidity/volume/price values.
        */
       if (
-        liveDexScreenerSystemContext &&
-        !liveDexScreenerSystemContext.includes(
+        liveDexScreenerContext &&
+        !liveDexScreenerContext.includes(
           'END TOKEN RETRIEVAL NOTICE'
         ) &&
         contractAddress
