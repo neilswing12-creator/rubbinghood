@@ -531,12 +531,11 @@ const interval = window.setInterval(
    * Duplicate tokens so the marquee
    * can loop continuously.
    */
+  const tickerTokens = tokens.slice(0, 50);
+
   const marqueeTokens =
-    tokens.length > 0
-      ? [
-          ...tokens,
-          ...tokens,
-        ]
+    tickerTokens.length > 0
+      ? [...tickerTokens, ...tickerTokens]
       : [];
 
   return (
@@ -766,7 +765,7 @@ const interval = window.setInterval(
         .animate-dex-marquee {
           animation:
             dex-marquee
-            300s
+            180s
             linear
             infinite;
           will-change: transform;
