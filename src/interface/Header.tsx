@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import packageJson from '../../package.json';
 import { useCoreStore } from '../integration/store/coreStore';
 import InfoModal from './InfoModal';
+import { WalletButton } from '../core/wallet/WalletButton';
 
 const version = packageJson.version;
 
@@ -930,120 +931,125 @@ const Header: React.FC = () => {
 
       <DexScreenerTokenMarquee />
 
-      {/* ======================================================
-          RIGHT: GLOBAL CONTROLS
-      ====================================================== */}
+{/* ======================================================
+    RIGHT: GLOBAL CONTROLS
+====================================================== */}
 
-      <div
-        className="
-          flex
-          items-center
-          gap-3
-          shrink-0
-        "
-      >
-        {/* MANAGE TEAMS */}
+<div
+  className="
+    flex
+    items-center
+    gap-3
+    shrink-0
+  "
+>
 
-        <button
-          onClick={() =>
-            setViewMode('design')
-          }
-          className="
-            flex
-            items-center
-            gap-2
-            px-3
-            py-1
-            bg-darkDelegation
-            hover:bg-darkDelegation
-            text-white
-            rounded-lg
-            transition-all
-            shadow-lg
-            shadow-black/10
-            active:scale-95
-            cursor-pointer
-            h-9
-            shrink-0
-            ml-1
-          "
-          title="Manage Teams"
-        >
-          <Settings
-            size={14}
-            className="
-              group-hover:rotate-45
-              transition-transform
-            "
-          />
+  {/* MANAGE TEAMS */}
 
-          <span
-            className="
-              text-[10px]
-              font-black
-              uppercase
-              tracking-wider
-              ml-1
-              hidden
-              sm:inline
-            "
-          >
-            Manage Teams
-          </span>
-        </button>
+  <button
+    onClick={() =>
+      setViewMode('design')
+    }
+    className="
+      flex
+      items-center
+      gap-2
+      px-3
+      py-1
+      bg-darkDelegation
+      hover:bg-darkDelegation
+      text-white
+      rounded-lg
+      transition-all
+      shadow-lg
+      shadow-black/10
+      active:scale-95
+      cursor-pointer
+      h-9
+      shrink-0
+      ml-1
+    "
+    title="Manage Teams"
+  >
+    <Settings
+      size={14}
+      className="
+        group-hover:rotate-45
+        transition-transform
+      "
+    />
 
-        {/* DEXSCREENER */}
+    <span
+      className="
+        text-[10px]
+        font-black
+        uppercase
+        tracking-wider
+        ml-1
+        hidden
+        sm:inline
+      "
+    >
+      Manage Teams
+    </span>
+  </button>
 
-        <a
-          href={DEXSCREENER_BASE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="
-            text-zinc-400
-            hover:text-darkDelegation
-            transition-colors
-            p-1
-            cursor-pointer
-          "
-          title="Open DexScreener Robinhood Markets"
-        >
-          <ExternalLink size={16} />
-        </a>
+  {/* CONNECT WALLET */}
 
-        {/* DIVIDER */}
+  <WalletButton />
 
-        <div
-          className="
-            w-px
-            h-4
-            bg-zinc-200
-          "
-        />
+  {/* DEXSCREENER */}
 
-        {/* FULLSCREEN */}
+  <a
+    href={DEXSCREENER_BASE_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="
+      text-zinc-400
+      hover:text-darkDelegation
+      transition-colors
+      p-1
+      cursor-pointer
+    "
+    title="Open DexScreener Robinhood Markets"
+  >
+    <ExternalLink size={16} />
+  </a>
 
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-          "
-        >
-          <button
-            onClick={handleFullscreen}
-            className="
-              text-zinc-400
-              hover:text-darkDelegation
-              transition-colors
-              p-1
-              cursor-pointer
-            "
-            title="Fullscreen Browser"
-          >
-            <Maximize2 size={16} />
-          </button>
-        </div>
-      </div>
+  {/* DIVIDER */}
+
+  <div
+    className="
+      w-px
+      h-4
+      bg-zinc-200
+    "
+  />
+
+  {/* FULLSCREEN */}
+
+  <div
+    className="
+      flex
+      items-center
+      gap-2
+    "
+  >
+    <button
+      onClick={handleFullscreen}
+      className="
+        text-zinc-400
+        hover:text-darkDelegation
+        transition-colors
+        p-1
+        cursor-pointer
+      "
+      title="Fullscreen Browser"
+    >
+      <Maximize2 size={16} />
+    </button>
+  </div>
+</div>
 
       {/* ======================================================
           INFO MODAL
