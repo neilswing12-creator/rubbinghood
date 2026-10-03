@@ -763,14 +763,14 @@ const interval = window.setInterval(
             }
           }
 
-          .animate-dex-marquee {
-            animation:
-              dex-marquee
-              55s
-              linear
-              infinite;
-            will-change: transform;
-          }
+        .animate-dex-marquee {
+          animation:
+            dex-marquee
+            300s
+            linear
+            infinite;
+          will-change: transform;
+        }
         `}
       </style>
     </div>
