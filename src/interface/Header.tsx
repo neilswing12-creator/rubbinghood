@@ -513,13 +513,13 @@ const DexScreenerTokenMarquee: React.FC = () => {
 
     fetchTokens();
 
-    /*
-     * Refresh every 15 seconds.
-     */
-    const interval = window.setInterval(
-      fetchTokens,
-      15_000
-    );
+/*
+ * Refresh every 5 minutes.
+ */
+const interval = window.setInterval(
+  fetchTokens,
+  5 * 60 * 1000
+);
 
     return () => {
       cancelled = true;
