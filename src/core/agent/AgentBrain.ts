@@ -622,21 +622,10 @@ function buildTradeIntent(
 function sanitizeModelAnalysis(text: string): string {
   if (!text) return text;
 
-  let result = text;
-
-  // Remove common unsupported market-value formats if Gemini
-  // nevertheless attempts to generate them in its prose.
-  result = result.replace(
-    /(?:USD\s*)?\$[\d,]+(?:\.\d+)?(?:\s*(?:M|K|B))?/gi,
-    '[verified value shown above]'
-  );
-
-  result = result.replace(
-    /\b\d+(?:\.\d+)?%\b/g,
-    '[verified percentage shown above]'
-  );
-
-  return result.trim();
+  // Exact live market numbers are already rendered by
+  // buildVerifiedMarketBlock(). Keep Gemini's interpretation
+  // readable instead of replacing legitimate numbers/percentages.
+  return text.trim();
 }
 
 /**
